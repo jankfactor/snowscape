@@ -71,9 +71,9 @@ void SetPalette(void)
 
     for (i = 0; i < 16; ++i)
     {
-        pal.R = (inputPalette[i] >> 16) & 0xFF;
-        pal.G = (inputPalette[i] >> 8) & 0xFF;
-        pal.B = (inputPalette[i]) & 0xFF;
+        pal.R = (i << 4) & 0xFF;
+        pal.G = (i << 4) & 0xFF;
+        pal.B = (i << 4) & 0xFF;
         pal.INDEX = i;
 
         err = _kernel_swi(OS_WriteN, &rin, &rout);

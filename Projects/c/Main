@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 
             LookAt(&eyePos, &direction, &mat); // TODO - SLOWWWWWW - 2 cross products in here
 
-            ClearScreen(0xC6C6C6C6, 1); // Clear the new draw buffer
+            ClearScreen(0xAAAAAAAA, 1); // Clear the new draw buffer
 
             RenderModel(&mat, &eyePos, heading); // Main render
 
