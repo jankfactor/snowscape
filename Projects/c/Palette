@@ -16,22 +16,22 @@ unsigned int *g_fogTable;
 #define HEX_VAL(x) (((x) >> 16) & 0xFF), (((x) >> 8) & 0xFF), ((x) & 0xFF)
 
 static unsigned int inputPalette[16] = {
-    (0x004488), // low blue
-    (0x3377bb), // mid blue
-    (0x77bbff), // high blue
-    (0x115511), // low green
-    (0x448800), // mid green
-    (0x88cc00), // high green
-    (0x66aaee), // sky color
-    (0x155A78),
-    (0x2A7190),
-    (0x4088A8),
-    (0x4698BD),
-    (0x4DA9D2),
-    (0x54BAE8),
-    (0x88CCE8),
-    (0xA8ECE8),
-    (0xE8ECE8),
+    (0x000000),
+    (0x402000), 
+    (0x602000),
+    (0x804020),
+    (0xa06000),
+    (0xc08060),
+    (0x004000),
+    (0x006000),
+    (0xa02000),
+    (0xc0c000),
+    (0x004060),
+    (0x206080),
+    (0x4080a0),
+    (0x80c0e0),
+    (0xe0e0e0),
+    (0x20a0e0),
 };
 
 void SetupPaletteLookup(int allocating)
@@ -71,9 +71,9 @@ void SetPalette(void)
 
     for (i = 0; i < 16; ++i)
     {
-        pal.R = (i << 4) & 0xFF;
-        pal.G = (i << 4) & 0xFF;
-        pal.B = (i << 4) & 0xFF;
+        pal.R = (inputPalette[i] >> 16) & 0xFF;
+        pal.G = (inputPalette[i] >> 8) & 0xFF;
+        pal.B = (inputPalette[i]) & 0xFF;
         pal.INDEX = i;
 
         err = _kernel_swi(OS_WriteN, &rin, &rout);
@@ -147,7 +147,7 @@ int LoadFogLookup(const char *filename)
         return 1;
     }
 
-    fread((void *)g_fogTable, sizeof(unsigned int), (64 * 2 * 256), file);
+    fread((void *)g_fogTable, sizeof(unsigned int), (16 * 32), file);
 
     fclose(file);
 

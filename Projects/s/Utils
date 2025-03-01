@@ -285,9 +285,14 @@ Triv_DrawEdges
         ADD r0,r0,r7,LSL#2      ; Load the fog value
         TST v1_Y,#1             ; Does the triangle start on an odd line?
         LDRNE r7,[r0]             ; Load the fog value
-        LDRNE r8,[r0,#&100]       ; Load the fog value
+        LDRNE r8,[r0,#16]       ; Load the fog value offset by 16 bytes
         LDREQ r8,[r0]             ; Load the fog value
-        LDREQ r7,[r0,#&100]       ; Load the fog value
+        LDREQ r7,[r0,#16]       ; Load the fog value offset by 16 bytes
+        ; LDR r7,=RasterLookup
+        ; LDR r8,[r7]             ; Load the fog value
+        ; LDR r7,[r7,#4]             ; Load the fog value
+        ; MOV r7,#0xFFFFFFFF
+        ; MOV r8,#0xFFFFFFFF
 
 Triv_RasterScanlineLoop
         LDR r2,[r12],#4         ; Load the left edge x coord
@@ -753,6 +758,78 @@ OneOver         DCD &0  ; Our table of reciprocal 1/X values in fixed point
 ScreenBank      DCD &1  ; Initial screen bank index
 ScreenStart     DCD &0
 ScreenMax       DCD &0000A000   ; Changed from 14000 to A000 (halved for 4-bit mode)
+RasterLookup 
+        DCD &FFFFFFFF
+        DCD &0FFFFFFF
+        DCD &00FFFFFF
+        DCD &000FFFFF
+        DCD &0000FFFF
+        DCD &00000FFF
+        DCD &000000FF
+        DCD &0000000F
+
+        DCD &FFFFFFF0
+        DCD &0FFFFFF0
+        DCD &00FFFFF0
+        DCD &000FFFF0
+        DCD &0000FFF0
+        DCD &00000FF0
+        DCD &000000F0
+        DCD &00000000
+
+        DCD &FFFFFF00
+        DCD &0FFFFF00
+        DCD &00FFFF00
+        DCD &000FFF00
+        DCD &0000FF00
+        DCD &00000F00
+        DCD &00000000
+        DCD &00000000
+
+        DCD &FFFFF000
+        DCD &0FFFF000
+        DCD &00FFF000
+        DCD &000FF000
+        DCD &0000F000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+
+        DCD &FFFF0000
+        DCD &0FFF0000
+        DCD &00FF0000
+        DCD &000F0000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+
+        DCD &FFF00000
+        DCD &0FF00000
+        DCD &00F00000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+
+        DCD &FF000000
+        DCD &0F000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+
+        DCD &F0000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
 
 ALIGN
 

@@ -18,6 +18,7 @@ extern void ReserveScreenBanks(void);
 extern void SwitchScreenBank(void);
 extern void ClearScreen(int color, int fullclear);
 extern int KeyPress(int keyCode);
+extern void FillEdgeLists(int triList, int color);
 
 // SWI access
 _kernel_oserror *err;
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
     int heading = 498, pitch = -53;
     int *edgeList = NULL;
     V3D eyePos, direction;
+    V3D verts[3];
     MAT43 mat;
     int mouseX, mouseY;
     unsigned char block[9];
@@ -54,7 +56,7 @@ int main(int argc, char *argv[])
     SetBuffers((unsigned int)(g_OneOver), (unsigned int)(edgeList), (unsigned int)(g_fogTable)); // Store these on the ASM side for use there
 
     gBaseDirectoryPath = getenv("Game$Dir");
-    if (LoadFogLookup("assets.lookup") != 0)
+    if (LoadFogLookup("assets.bayer_patterns") != 0)
     {
         printf("ERROR: Failed to load fog lookup table.\n");
         return 1;
@@ -119,6 +121,17 @@ int main(int argc, char *argv[])
     mouseY = rout.r[1];
     eyePos.y = GetHeight(&eyePos); // Start at the correct height
 
+    // Triangle mainly in the center of the 320x256 screen
+    // verts[0].x = (160);
+    // verts[0].y = (10);
+    // verts[0].z = (0);
+    // verts[1].x = (80);
+    // verts[1].y = (200);
+    // verts[1].z = (0);
+    // verts[2].x = (240);
+    // verts[2].y = (200);
+    // verts[2].z = (0);            
+
     if (err == NULL)
     {
         while (isRunning)
@@ -156,9 +169,11 @@ int main(int argc, char *argv[])
 
             LookAt(&eyePos, &direction, &mat); // TODO - SLOWWWWWW - 2 cross products in here
 
-            ClearScreen(0xAAAAAAAA, 1); // Clear the new draw buffer
+            ClearScreen(0xFFFFFFFF, 1); // Clear the new draw buffer
 
             RenderModel(&mat, &eyePos, heading); // Main render
+
+            // FillEdgeLists((int)&verts[0], 0x0);
 
 #ifdef TIMING_LOG
             {
