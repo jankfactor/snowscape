@@ -305,8 +305,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 _verts[0] = clippedNearVerts[(*tri)->a];
                 _verts[1] = clippedNearVerts[(*tri)->b];
                 _verts[2] = clippedNearVerts[(*tri)->c];
-
-                k = (((*tri)->flags & 31) << 5); // Don't bother fogging clipped tris that are near
+                j = 0;
             }
             else
             {
@@ -321,15 +320,17 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 k = abs((*tri)->centerpoint.y - eyePos->z);
                 j = (j > k) ? (j + (k >> 1)) : (k + (j >> 1));
 #ifdef A5000
-                j >>= 22;
-                k = (((*tri)->flags & 31) << 3) + max(0, min(j - 1, 3));
+                j >>= 21;
+                j = max(0, j - 7);
 #else
                 j >>= 21;
-                k = (((*tri)->flags & 31) << 3) + max(0, min(j - 2, 3));
+                j = max(0, j - 2);
 #endif // A5000
             }
 
-            if (orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
+            k = (((*tri)->flags & 31) << 3) + j;
+
+            if (j < 4 && orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
                 FillEdgeLists((int)&_verts[0], k);
 
 #ifdef TIMING_LOG

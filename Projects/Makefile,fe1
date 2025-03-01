@@ -55,6 +55,10 @@ o.Main:	h.CVector
 o.Main:	h.Palette
 o.Main:	h.Render
 o.Main:	h.Math3D
+o.Mesh:	c.Mesh
+o.Mesh:	h.Mesh
+o.Mesh:	h.Math3D
+o.Mesh:	h.CVector
 o.Math3D:	c.Math3D
 o.Math3D:	h.Math3D
 o.Math3D:	h.CVector
@@ -65,14 +69,6 @@ o.Palette:	C:h.swis
 o.Palette:	h.CVector
 o.Utils: s.Utils
 o.Utils: h.SWINames
-o.Mesh:	c.Mesh
-o.Mesh:	h.Mesh
-o.Mesh:	h.Math3D
-o.Mesh:	h.CVector
-o.Mesh:	c.Mesh
-o.Mesh:	h.Mesh
-o.Mesh:	h.Math3D
-o.Mesh:	h.CVector
 o.Render:	c.Render
 o.Render:	C:h.kernel
 o.Render:	h.Render
