@@ -20,9 +20,9 @@ void GenerateTerrain()
     TRI face;
     int vertcounter = 0, facecounter = 0;
     fix tl, tr, bl, br;
-    unsigned char range[48] = {49, 49, 49, 49, 89, 89, 89, 89, 90, 90, 91, 91, 92, 92, 118, 118,
-                               32, 32, 32, 32, 35, 35, 40, 40, 68, 68, 68, 112, 112, 115, 115, 113,
-                               160, 160, 160, 160, 161, 161, 161, 161, 194, 194, 194, 194, 247, 247, 255, 255};
+    // unsigned char range[48] = {49, 49, 49, 49, 89, 89, 89, 89, 90, 90, 91, 91, 92, 92, 118, 118,
+    //                            32, 32, 32, 32, 35, 35, 40, 40, 68, 68, 68, 112, 112, 115, 115, 113,
+    //                            160, 160, 160, 160, 161, 161, 161, 161, 194, 194, 194, 194, 247, 247, 255, 255};
 
     // srand(time(NULL));
     srand(55555);
@@ -116,13 +116,13 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
-                k = clamp(12 + (((tl - tr) + (tl - bl)) >> 17), 0, 15);
-                if (tl > SNOWLEVEL)
-                    k += 32;
-                else if (tl > SANDLEVEL)
-                    k += 16;
+                k = clamp(5 + (((tl - tr) + (tl - bl)) >> 17), 0, 10);
+                // if (tl > SNOWLEVEL)
+                //     k += 32;
+                // else if (tl > SANDLEVEL)
+                //     k += 16;
 
-                face.flags = range[k];
+                face.flags = k;
                 g_Mesh.faces[facecounter++] = face;
 
                 /* BR
@@ -138,12 +138,12 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
-                k = clamp(12 + (((bl - br) + (tr - br)) >> 17), 0, 15);
-                if (br > SNOWLEVEL)
-                    k += 32;
-                else if (br > SANDLEVEL)
-                    k += 16;
-                face.flags = range[k];
+                k = clamp(5 + (((bl - br) + (tr - br)) >> 17), 0, 10);
+                // if (br > SNOWLEVEL)
+                //     k += 32;
+                // else if (br > SANDLEVEL)
+                //     k += 16;
+                face.flags = k;
                 g_Mesh.faces[facecounter++] = face;
             }
             else
@@ -162,12 +162,12 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
-                k = clamp(12 + (((tl - tr) + (tr - br)) >> 16), 0, 15);
-                if (tr > SNOWLEVEL)
-                    k += 32;
-                else if (tr > SANDLEVEL)
-                    k += 16;
-                face.flags = range[k];
+                k = clamp(5 + (((tl - tr) + (tr - br)) >> 16), 0, 10);
+                // if (tr > SNOWLEVEL)
+                //     k += 32;
+                // else if (tr > SANDLEVEL)
+                //     k += 16;
+                face.flags = k;
                 g_Mesh.faces[facecounter++] = face;
 
                 /* BL
@@ -183,12 +183,12 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
-                k = clamp(12 + (((bl - br) + (tl - bl)) >> 16), 0, 15);
-                if (bl > SNOWLEVEL)
-                    k += 32;
-                else if (bl > SANDLEVEL)
-                    k += 16;
-                face.flags = range[k];
+                k = clamp(5 + (((bl - br) + (tl - bl)) >> 16), 0, 10);
+                // if (bl > SNOWLEVEL)
+                //     k += 32;
+                // else if (bl > SANDLEVEL)
+                //     k += 16;
+                face.flags = k;
                 g_Mesh.faces[facecounter++] = face;
             }
         }

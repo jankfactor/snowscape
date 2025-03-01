@@ -17,6 +17,11 @@ unsigned int *g_fogTable;
 
 static unsigned int inputPalette[16] = {
     (0x000000),
+    (0x004060),
+    (0x206080),
+    (0x4080a0),
+    (0x80c0e0),
+    (0xe0e0e0),
     (0x402000), 
     (0x602000),
     (0x804020),
@@ -26,11 +31,6 @@ static unsigned int inputPalette[16] = {
     (0x006000),
     (0xa02000),
     (0xc0c000),
-    (0x004060),
-    (0x206080),
-    (0x4080a0),
-    (0x80c0e0),
-    (0xe0e0e0),
     (0x20a0e0),
 };
 

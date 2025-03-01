@@ -306,7 +306,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 _verts[1] = clippedNearVerts[(*tri)->b];
                 _verts[2] = clippedNearVerts[(*tri)->c];
 
-                k = (((*tri)->flags & 15) << 5); // Don't bother fogging clipped tris that are near
+                k = (((*tri)->flags & 31) << 5); // Don't bother fogging clipped tris that are near
             }
             else
             {
@@ -322,10 +322,10 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 j = (j > k) ? (j + (k >> 1)) : (k + (j >> 1));
 #ifdef A5000
                 j >>= 22;
-                k = (((*tri)->flags & 15) << 3) + max(0, min(j - 1, 3));
+                k = (((*tri)->flags & 31) << 3) + max(0, min(j - 1, 3));
 #else
                 j >>= 21;
-                k = (((*tri)->flags & 15) << 3) + max(0, min(j - 3, 3));
+                k = (((*tri)->flags & 31) << 3) + max(0, min(j - 2, 3));
 #endif // A5000
             }
 
