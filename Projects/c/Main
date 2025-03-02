@@ -32,7 +32,7 @@ char *gBaseDirectoryPath = NULL;
 int main(int argc, char *argv[])
 {
     int i, swi_data[10], isRunning = 1;
-    int heading = 498, pitch = -53;
+    int heading = 498, pitch = -53, angle = 0;
     int *edgeList = NULL;
     V3D eyePos, direction;
     V3D verts[3];
@@ -122,15 +122,15 @@ int main(int argc, char *argv[])
     eyePos.y = GetHeight(&eyePos); // Start at the correct height
 
     // Triangle mainly in the center of the 320x256 screen
-    // verts[0].x = (160);
-    // verts[0].y = (10);
-    // verts[0].z = (0);
-    // verts[1].x = (80);
-    // verts[1].y = (200);
-    // verts[1].z = (0);
-    // verts[2].x = (240);
-    // verts[2].y = (200);
-    // verts[2].z = (0);            
+    verts[0].x = (163);
+    verts[0].y = (10);
+    verts[0].z = (0);
+    verts[1].x = (75);
+    verts[1].y = (200);
+    verts[1].z = (0);
+    verts[2].x = (247);
+    verts[2].y = (215);
+    verts[2].z = (0);
 
     if (err == NULL)
     {
@@ -173,7 +173,24 @@ int main(int argc, char *argv[])
 
             RenderModel(&mat, &eyePos, heading); // Main render
 
-            // FillEdgeLists((int)&verts[0], 0x0);
+            // verts[0].x = (fixsin(angle) >> 10);
+            // verts[0].y = (fixcos(angle) >> 10);
+            // verts[1].x = (fixsin(angle + 330) >> 10);
+            // verts[1].y = (fixcos(angle + 330) >> 10);
+            // verts[2].x = (fixsin(angle + 660) >> 10);
+            // verts[2].y = (fixcos(angle + 660) >> 10);
+
+            // verts[0].x += 160 + (verts[0].x >> 1);
+            // verts[0].y += 128 + (verts[0].y >> 1);
+            // verts[1].x += 160 + (verts[1].x >> 1);
+            // verts[1].y += 128 + (verts[1].y >> 1);
+            // verts[2].x += 160 + (verts[2].x >> 1);
+            // verts[2].y += 128 + (verts[2].y >> 1);
+
+
+            // // ++angle;
+
+            // FillEdgeLists((int)&verts[0], 0x2);
 
 #ifdef TIMING_LOG
             {

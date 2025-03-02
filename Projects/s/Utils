@@ -288,17 +288,12 @@ Triv_DrawEdges
         LDRNE r8,[r0,#16]       ; Load the fog value offset by 16 bytes
         LDREQ r8,[r0]             ; Load the fog value
         LDREQ r7,[r0,#16]       ; Load the fog value offset by 16 bytes
-        ; LDR r7,=RasterLookup
-        ; LDR r8,[r7]             ; Load the fog value
-        ; LDR r7,[r7,#4]             ; Load the fog value
-        ; MOV r7,#0xFFFFFFFF
-        ; MOV r8,#0xFFFFFFFF
 
 Triv_RasterScanlineLoop
         LDR r2,[r12],#4         ; Load the left edge x coord
-        MOV r3,r2,LSR#17        ; Move to integer
-        MOV r2,r2,LSL#16        ; Move to integer
-        MOV r2,r2,LSR#17        ; Move to integer
+        MOV r3,r2,LSR#16        ; Move the left edge x coord to integer
+        MOV r2,r2,LSL#16        ; Clear out the left edge x coord leaving the right edge
+        MOV r2,r2,LSR#16        ; Move back to integer
 
         CMP r3,r2       ; if x2 < x1
         BEQ Triv_Continue      ; Skip the swap
@@ -306,99 +301,105 @@ Triv_RasterScanlineLoop
         EORMI r2,r3,r2    ; swap x1 and x2
         EORMI r3,r3,r2    ; swap x1 and x2
 
-        ADD r9,r11,r2           ; Add the left edge x coord to the screen offset
-        ADD r10,r11,r3          ; Add the right edge x coord to the screen offset
+        ; Are we somewhere inside a word?
+        ; TST r2, #7
+        ; ; Our first check is to see if we have an xL and xR within the same quad boundary
+        MOV r9, r2, LSR#3 ; Move xL to a memory boundary
+        MOV r10, r3, LSR#3 ; Move xR to a memory boundary
+        CMP r9, r10 ; Are xL and xR on the same boundary? 
+        BEQ Triv_Continue ; TODO - Don't deal with this for now. 
 
-        MOV r0,r7       ; Load the fog value
-        MOV r1,r0
-        ANDS r2,r9,#1   ; Used to rotate the color
-        MOVNE r1,r1,ROR#8  ; Rotate the color
-
-        SUB r4,r10,r9           ; Get the number of pixels left
-        CMP r4,#4
-        BLT Triv_SPINLAST            
-
-        ; The following are awkward starting points, so we'll just use STRB
-        TST r9,#3
-        STRNEB r1,[r9],#1 ; Store the color
-        MOVNE r1,r1,ROR#8  ; Rotate the color
-        SUBNE r4,r4,#1
-        TSTNE r9,#3
-        STRNEB r1,[r9],#1 ; Store the color
-        MOVNE r1,r1,ROR#8  ; Rotate the color
-        SUBNE r4,r4,#1
-        TSTNE r9,#3
-        STRNEB r1,[r9],#1 ; Store the color
-        MOVNE r1,r1,ROR#8  ; Rotate the color
-        SUBNE r4,r4,#1
+        ADD r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
+        ADD r10, r11, r3, LSR #1 ; Add the right edge x coord to the screen offset
+        ; BNE Triv_QUADSTART ; Nope, we have the start of a best case scenario!
+        
+        ; Get the mask for this L pixel configuration
+        AND r0, r2, #7 ; How far in we are
+        LDR r1, =RasterLookup
+        MOV r0, r0, LSL #2 ; Jump down table in word steps
+        LDR r0, [r1, r0] ; Mask now in r0
+        BIC r9, r9, #3 ; Move screen buffer back to boundary
+        LDR r1, [r9] ; Load existing color
+        AND r1, r1, r0 ; Mask out existing color
+        BIC r0, r7, r0 ; Mask out new color with inverted mask (which is no longer required)
+        ORR r0, r0, r1 ; Combine masked data
+        STR r0, [r9], #4 ; Write it back in again
 
 Triv_QUADSTART
-        MOV r4,r4,LSR#4
-        CMP r4,#16              ; Reduced from 32 to 16 since bytes are halved
+        MOV r0, r7
+        SUB r4, r10, r9 ; Get the number of pixels left
+        MOV r4, r4, LSR #4
+        CMP r4, #16 ; Reduced from 32 to 16 since bytes are halved
         BGE Triv_DEND
-        RSB r4,r4,#16          ; Reverse order, reduced from 32 to 16
-        MOV r1,r0
-        MOV r2,r0
-        MOV r3,r0
-        ADD pc,pc,r4,LSL#2
-        MOV r0,r0
-        STMIA r9!,{r0-r3}      ; Reduced number of STMIA instructions by half
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
-        STMIA r9!,{r0-r3}
+        RSB r4, r4, #16 ; Reverse order, reduced from 32 to 16
+        MOV r0, #&DD
+        EOR r0, r0, r0, LSL #8
+        EOR r0, r0, r0, LSL #16
+        MOV r1, r0
+        MOV r2, r0
+        MOV r3, r0
+        ADD pc, pc, r4, LSL #2
+        MOV r0, r0
+        STMIA r9!, {r0-r3} ; Reduced number of STMIA instructions by half
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
+        STMIA r9!, {r0-r3}
 
         ; ; In theory, there should be less than 16 bytes left, so attempt STR with quads now
-        SUB r4,r10,r9           ; Get the number of pixels left
-        MOV r4,r4,LSR#2
-        RSB r4,r4,#4 ; reverse order
-        ADD pc,pc,r4,LSL#2 ; If remaining width > 4 pixels, we can use this jump table.
-        MOV r0,r0
-        STR r0,[r9],#4
-        STR r0,[r9],#4
-        STR r0,[r9],#4
-        STR r0,[r9],#4
+        SUB r4, r10, r9 ; Get the number of pixels left
+        MOV r4, r4, LSR #2
+        RSB r4, r4, #4 ; reverse order
+        MOV r0, #&BB
+        EOR r0, r0, r0, LSL #8
+        EOR r0, r0, r0, LSL #16
+        ADD pc, pc, r4, LSL #2 ; If remaining width > 4 pixels, we can use this jump table.
+        MOV r0, r0
+        STR r0, [r9], #4
+        STR r0, [r9], #4
+        STR r0, [r9], #4
+        STR r0, [r9], #4
 Triv_DEND
 
-        MOV r1,r0
-        ANDS r2,r9,#1   ; Used to rotate the color
-        MOVNE r1,r1,ROR#8  ; Rotate the color
+        MOV r1, r0
+        ANDS r2, r9, #1 ; Used to rotate the color
+        MOVNE r1, r1, ROR #8 ; Rotate the color
 
 Triv_SPINLAST
-        CMP r9,r10
-        STRLTB r1,[r9],#1
-        MOVLT r1,r1,ROR#8
-        CMPLT r9,r10
-        STRLTB r1,[r9],#1
-        MOVLT r1,r1,ROR#8
-        CMPLT r9,r10
-        STRLTB r1,[r9],#1
-        MOVLT r1,r1,ROR#8
-        CMPLT r9,r10
-        STRLTB r1,[r9],#1
+        ; CMP r9, r10
+        ; STRLTB r1, [r9], #1
+        ; MOVLT r1, r1, ROR #8
+        ; CMPLT r9, r10
+        ; STRLTB r1, [r9], #1
+        ; MOVLT r1, r1, ROR #8
+        ; CMPLT r9, r10
+        ; STRLTB r1, [r9], #1
+        ; MOVLT r1, r1, ROR #8
+        ; CMPLT r9, r10
+        ; STRLTB r1, [r9], #1
 
 Triv_Continue
-        EOR r7,r7,r8    ; Swap dither pattern
-        EOR r8,r7,r8    ;
-        EOR r7,r7,r8    ;
+        EOR r7, r7, r8 ; Swap dither pattern
+        EOR r8, r7, r8 ;
+        EOR r7, r7, r8 ;
 
-        ADD r11,r11,#160        ; Changed from 320 to 160 bytes per scanline
-        SUBS r14,r14,#1         ; Decrement the y counter
-        BGT Triv_RasterScanlineLoop               ; Loop until we reach y2
+        ADD r11, r11, #160 ; Changed from 320 to 160 bytes per scanline
+        SUBS r14, r14, #1 ; Decrement the y counter
+        BGT Triv_RasterScanlineLoop ; Loop until we reach y2
 
-        LDMFD sp!,{r1,r4-r12,r14}  ; Restore registers before returning
-        MOV pc,lr
+        LDMFD sp!, {r1, r4-r12, r14} ; Restore registers before returning
+        MOV pc, lr
 
 ; ==========================================
 ; ========= CLIPPED TRIANGLE ===============
@@ -759,77 +760,78 @@ ScreenBank      DCD &1  ; Initial screen bank index
 ScreenStart     DCD &0
 ScreenMax       DCD &0000A000   ; Changed from 14000 to A000 (halved for 4-bit mode)
 RasterLookup 
-        DCD &FFFFFFFF
-        DCD &0FFFFFFF
-        DCD &00FFFFFF
-        DCD &000FFFFF
-        DCD &0000FFFF
-        DCD &00000FFF
-        DCD &000000FF
+        ; DCD &00000000
         DCD &0000000F
+        DCD &000000FF
+        DCD &00000FFF
+        DCD &0000FFFF
+        DCD &000FFFFF
+        DCD &00FFFFFF
+        DCD &0FFFFFFF
+        DCD &FFFFFFFF
 
-        DCD &FFFFFFF0
-        DCD &0FFFFFF0
-        DCD &00FFFFF0
-        DCD &000FFFF0
-        DCD &0000FFF0
-        DCD &00000FF0
+        DCD &00000000
         DCD &000000F0
-        DCD &00000000
+        DCD &00000FF0
+        DCD &0000FFF0
+        DCD &000FFFF0
+        DCD &00FFFFF0
+        DCD &0FFFFFF0
+        DCD &FFFFFFF0
 
-        DCD &FFFFFF00
-        DCD &0FFFFF00
-        DCD &00FFFF00
-        DCD &000FFF00
-        DCD &0000FF00
+        DCD &00000000
+        DCD &00000000
         DCD &00000F00
-        DCD &00000000
-        DCD &00000000
+        DCD &0000FF00
+        DCD &000FFF00
+        DCD &00FFFF00
+        DCD &0FFFFF00
+        DCD &FFFFFF00
 
-        DCD &FFFFF000
-        DCD &0FFFF000
-        DCD &00FFF000
-        DCD &000FF000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
         DCD &0000F000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
+        DCD &000FF000
+        DCD &00FFF000
+        DCD &0FFFF000
+        DCD &FFFFF000
 
-        DCD &FFFF0000
-        DCD &0FFF0000
-        DCD &00FF0000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
         DCD &000F0000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
+        DCD &00FF0000
+        DCD &0FFF0000
+        DCD &FFFF0000
 
-        DCD &FFF00000
-        DCD &0FF00000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
         DCD &00F00000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
+        DCD &0FF00000
+        DCD &FFF00000
 
-        DCD &FF000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
         DCD &0F000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
+        DCD &FF000000
 
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
+        DCD &00000000
         DCD &F0000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
-        DCD &00000000
 
 ALIGN
 
