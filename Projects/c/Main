@@ -122,14 +122,14 @@ int main(int argc, char *argv[])
     eyePos.y = GetHeight(&eyePos); // Start at the correct height
 
     // Triangle mainly in the center of the 320x256 screen
-    verts[0].x = (163);
+    verts[0].x = (164);
     verts[0].y = (10);
     verts[0].z = (0);
-    verts[1].x = (75);
+    verts[1].x = (150);
     verts[1].y = (200);
     verts[1].z = (0);
-    verts[2].x = (247);
-    verts[2].y = (215);
+    verts[2].x = (170);
+    verts[2].y = (200);
     verts[2].z = (0);
 
     if (err == NULL)
@@ -171,26 +171,26 @@ int main(int argc, char *argv[])
 
             ClearScreen(0xFFFFFFFF, 1); // Clear the new draw buffer
 
-            RenderModel(&mat, &eyePos, heading); // Main render
+            // RenderModel(&mat, &eyePos, heading); // Main render
 
-            // verts[0].x = (fixsin(angle) >> 10);
-            // verts[0].y = (fixcos(angle) >> 10);
-            // verts[1].x = (fixsin(angle + 330) >> 10);
-            // verts[1].y = (fixcos(angle + 330) >> 10);
-            // verts[2].x = (fixsin(angle + 660) >> 10);
-            // verts[2].y = (fixcos(angle + 660) >> 10);
+            verts[0].x = (fixsin(angle) >> 10);
+            verts[0].y = (fixcos(angle) >> 10);
+            verts[1].x = (fixsin(angle + 512) >> 10);
+            verts[1].y = (fixcos(angle + 512) >> 10);
+            verts[2].x = (fixsin(angle + 550) >> 10);
+            verts[2].y = (fixcos(angle + 550) >> 10);
 
-            // verts[0].x += 160 + (verts[0].x >> 1);
-            // verts[0].y += 128 + (verts[0].y >> 1);
-            // verts[1].x += 160 + (verts[1].x >> 1);
-            // verts[1].y += 128 + (verts[1].y >> 1);
-            // verts[2].x += 160 + (verts[2].x >> 1);
-            // verts[2].y += 128 + (verts[2].y >> 1);
+            verts[0].x += 160 + (verts[0].x >> 1);
+            verts[0].y += 128 + (verts[0].y >> 1);
+            verts[1].x += 160 + (verts[1].x >> 1);
+            verts[1].y += 128 + (verts[1].y >> 1);
+            verts[2].x += 160 + (verts[2].x >> 1);
+            verts[2].y += 128 + (verts[2].y >> 1);
 
 
-            // // ++angle;
+            ++angle;
 
-            // FillEdgeLists((int)&verts[0], 0x2);
+            FillEdgeLists((int)&verts[0], 0x2);
 
 #ifdef TIMING_LOG
             {
