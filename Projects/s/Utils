@@ -304,6 +304,12 @@ Triv_RasterScanlineLoop
         ; Our first check is to see if we have an xL and xR within the same quad boundary
         EOR r9, r2, r3 
         TST r9, #&F8 ; Are xL and xR on the same boundary? (ie, anything outside of 0b111)
+
+        ; Ideal situation is xL on a boundary start and xR not in the boundary, can just jump to quads
+        TSTNE r2, #7
+        ADDEQ r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
+        BEQ Triv_QUADSTART
+
         ; If not, we have an easy job as we just mask 0xFFFFFFFF and shift it by our required pixels
         AND r0, r2, #7 ; How far in we are
         MOV r0, r0, LSL #2 ; Shift in nibbles
@@ -341,9 +347,9 @@ Triv_QUADSTART
         CMP r4, #16 ; Reduced from 32 to 16 since bytes are halved
         BGE Triv_DEND
         RSB r4, r4, #16 ; Reverse order, reduced from 32 to 16
-        MOV r0, #&DD
-        EOR r0, r0, r0, LSL #8
-        EOR r0, r0, r0, LSL #16
+        ; MOV r0, #&DD
+        ; EOR r0, r0, r0, LSL #8
+        ; EOR r0, r0, r0, LSL #16
         MOV r1, r0
         MOV r2, r0
         MOV r3, r0
@@ -370,9 +376,9 @@ Triv_QUADSTART
         SUB r4, r10, r9 ; Get the number of pixels left
         MOV r4, r4, LSR #2
         RSB r4, r4, #4 ; reverse order
-        MOV r0, #&BB
-        EOR r0, r0, r0, LSL #8
-        EOR r0, r0, r0, LSL #16
+        ; MOV r0, #&BB
+        ; EOR r0, r0, r0, LSL #8
+        ; EOR r0, r0, r0, LSL #16
         ADD pc, pc, r4, LSL #2 ; If remaining width > 4 pixels, we can use this jump table.
         MOV r0, r0
         STR r0, [r9], #4
