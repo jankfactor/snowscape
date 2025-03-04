@@ -116,7 +116,7 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
-                k = clamp(10 + (((tl - tr) + (tl - bl)) >> 17), 0, 10);
+                k = clamp(6 + (((tl - tr) + (tl - bl)) >> 18), 2, 10);
                 // if (tl > SNOWLEVEL)
                 //     k += 32;
                 // else if (tl > SANDLEVEL)
@@ -138,7 +138,7 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
-                k = clamp(10 + (((bl - br) + (tr - br)) >> 17), 0, 10);
+                k = clamp(6 + (((bl - br) + (tr - br)) >> 18), 2, 10);
                 // if (br > SNOWLEVEL)
                 //     k += 32;
                 // else if (br > SANDLEVEL)
@@ -162,7 +162,7 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
-                k = clamp(10 + (((tl - tr) + (tr - br)) >> 16), 0, 10);
+                k = clamp(6 + (((tl - tr) + (tr - br)) >> 17), 2, 10);
                 // if (tr > SNOWLEVEL)
                 //     k += 32;
                 // else if (tr > SANDLEVEL)
@@ -183,7 +183,7 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
-                k = clamp(10 + (((bl - br) + (tl - bl)) >> 16), 0, 10);
+                k = clamp(6 + (((bl - br) + (tl - bl)) >> 17), 2, 10);
                 // if (bl > SNOWLEVEL)
                 //     k += 32;
                 // else if (bl > SANDLEVEL)

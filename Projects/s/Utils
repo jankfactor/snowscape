@@ -89,6 +89,9 @@ SwitchScreenBank
 
         EXPORT ClearScreen ; ClearScreen(int color);
 ClearScreen
+        ; MVN r0,#0
+        ; MOV r0, r0, LSR#4
+
         STMFD sp!,{r4-r11}
         MOV r3, r0
         MOV r4, r0
@@ -306,9 +309,10 @@ Triv_RasterScanlineLoop
         TST r9, #&F8 ; Are xL and xR on the same boundary? (ie, anything outside of 0b111)
 
         ; Ideal situation is xL on a boundary start and xR not in the boundary, can just jump to quads
-        TSTNE r2, #7
-        ADDEQ r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
-        BEQ Triv_QUADSTART
+        ; TSTNE r2, r3
+        ; ADDEQ r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
+        ; ADDEQ r10, r11, r3, LSR #1 ; Add the right edge x coord to the screen offset
+        ; BEQ Triv_Continue
 
         ; If not, we have an easy job as we just mask 0xFFFFFFFF and shift it by our required pixels
         AND r0, r2, #7 ; How far in we are
@@ -319,7 +323,33 @@ Triv_RasterScanlineLoop
         ANDEQ r10, r3, #7
         MOVEQ r10, r10, LSL #2 ; Shift in nibbles
         BICEQ r0, r0, r1, LSL r10
-        
+        ; This is also good news, as it means we can just jump to the next raster line now as our job is done
+
+        ADD r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
+        BIC r9, r9, #3 ; Move screen buffer back to boundary
+        LDR r1, [r9] ; Load existing color
+        BIC r1, r1, r0 ; Mask out existing color
+        AND r0, r7, r0 ; Mask out new color with inverted mask (which is no longer required)
+        ORR r0, r0, r1 ; Combine masked data
+        STR r0, [r9], #4 ; Write it back in again
+        BEQ Triv_Continue ; If this was a short raster, we can just jump ahead. 
+
+        ; Otherwise, let's get the end sorted
+        ANDS r0, r3, #7 ; How far in we are on the xR side
+        MOV r0, r0, LSL #2 ; Shift in nibbles
+        MVN r1, #0 ; 0xFFFFFFFF
+        MOV r0, r1, LSL r0
+
+        ADD r10, r11, r3, LSR #1 ; Add the right edge x coord to the screen offset
+        BICNE r10, r10, #3 ; Move screen buffer back to boundary
+        LDR r1, [r10] ; Load existing color
+        AND r1, r1, r0 ; Mask out existing color
+        BIC r0, r7, r0 ; Mask out new color with inverted mask (which is no longer required)
+        ORR r0, r0, r1 ; Combine masked data
+        STR r0, [r10], #4 ; Write it back in again
+        ADD r10, r11, r3, LSR #1 ; Add the right edge x coord to the screen offset
+        ; B Triv_Continue ; If this was a short raster, we can just jump ahead. 
+
         ; Get the mask for this awkward L/R pixel configuration
         ; ANDEQ r10, r3, #7 ; In the same boundary, so get pixel position within same word
         ; RSBEQ r10, r10, #7
@@ -329,19 +359,8 @@ Triv_RasterScanlineLoop
         ; LDREQ r1, =RasterLookup
         ; LDREQ r0, [r1, r0] ; Mask now in r0
 
-        ADD r9, r11, r2, LSR #1 ; Add the left edge x coord to the screen offset
-        BIC r9, r9, #3 ; Move screen buffer back to boundary
-        LDR r1, [r9] ; Load existing color
-        BIC r1, r1, r0 ; Mask out existing color
-        AND r0, r7, r0 ; Mask out new color with inverted mask (which is no longer required)
-        ORR r0, r0, r1 ; Combine masked data
-        STR r0, [r9], #4 ; Write it back in again
-
-        ; B Triv_Continue
-
 Triv_QUADSTART
         MOV r0, r7
-        ADD r10, r11, r3, LSR #1 ; Add the right edge x coord to the screen offset
         SUB r4, r10, r9 ; Get the number of pixels left
         MOV r4, r4, LSR #4
         CMP r4, #16 ; Reduced from 32 to 16 since bytes are halved

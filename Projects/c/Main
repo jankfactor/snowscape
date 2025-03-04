@@ -146,12 +146,14 @@ int main(int argc, char *argv[])
 
             if (rout.r[2] & 4) // Left mouse button - Walk forward
             {
+                // --angle;
                 eyePos.x += (fixcos(heading)) << 1;
                 eyePos.z -= (fixsin(heading)) << 1;
                 eyePos.y = GetHeight(&eyePos);
             }
             if (rout.r[2] & 1) // Right mouse button - Walk backward
             {
+                // ++angle;
                 eyePos.x -= (fixcos(heading));
                 eyePos.z += (fixsin(heading));
                 eyePos.y = GetHeight(&eyePos);
@@ -173,12 +175,12 @@ int main(int argc, char *argv[])
 
             RenderModel(&mat, &eyePos, heading); // Main render
 
-            // verts[0].x = (fixsin(angle) >> 10);
-            // verts[0].y = (fixcos(angle) >> 10);
-            // verts[1].x = (fixsin(angle + 512) >> 10);
-            // verts[1].y = (fixcos(angle + 512) >> 10);
-            // verts[2].x = (fixsin(angle + 550) >> 10);
-            // verts[2].y = (fixcos(angle + 550) >> 10);
+            // verts[0].x = (fixsin((angle)) >> 10);
+            // verts[0].y = (fixcos((angle)) >> 10);
+            // verts[1].x = (fixsin((angle) + 412) >> 10);
+            // verts[1].y = (fixcos((angle) + 412) >> 10);
+            // verts[2].x = (fixsin((angle) + 650) >> 10);
+            // verts[2].y = (fixcos((angle) + 650) >> 10);
 
             // verts[0].x += 160 + (verts[0].x >> 1);
             // verts[0].y += 128 + (verts[0].y >> 1);
