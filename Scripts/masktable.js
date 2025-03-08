@@ -2,7 +2,7 @@ function generateMask(xLeft, xRight) {
     // Start with all bits set (but handle as unsigned)
     let maskL = 0xFFFFFFFF >>> (xLeft * 4);
     let maskR = 0xFFFFFFFF << (xRight * 4);
-    let mask = (maskL & maskR);
+    let mask = ~(maskL & maskR);
     
     // Convert to hex string correctly even for negative values
     return mask >>> 0; // Convert to unsigned 32-bit integer

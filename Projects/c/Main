@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     SetBuffers((unsigned int)(g_OneOver), (unsigned int)(edgeList), (unsigned int)(g_fogTable)); // Store these on the ASM side for use there
 
     gBaseDirectoryPath = getenv("Game$Dir");
-    if (LoadFogLookup("assets.bayer_patterns") != 0)
+    if (LoadFogLookup("assets.lookup9") != 0)
     {
         printf("ERROR: Failed to load fog lookup table.\n");
         return 1;
@@ -177,20 +177,19 @@ int main(int argc, char *argv[])
 
             // verts[0].x = (fixsin((angle)) >> 10);
             // verts[0].y = (fixcos((angle)) >> 10);
-            // verts[1].x = (fixsin((angle) + 412) >> 10);
-            // verts[1].y = (fixcos((angle) + 412) >> 10);
+            // verts[1].x = (fixsin((angle) + 312) >> 10);
+            // verts[1].y = (fixcos((angle) + 312) >> 10);
             // verts[2].x = (fixsin((angle) + 650) >> 10);
             // verts[2].y = (fixcos((angle) + 650) >> 10);
 
-            // verts[0].x += 160 + (verts[0].x >> 1);
-            // verts[0].y += 128 + (verts[0].y >> 1);
-            // verts[1].x += 160 + (verts[1].x >> 1);
-            // verts[1].y += 128 + (verts[1].y >> 1);
-            // verts[2].x += 160 + (verts[2].x >> 1);
-            // verts[2].y += 128 + (verts[2].y >> 1);
+            // verts[0].x += 160 + (verts[0].x);
+            // verts[0].y += 128 + (verts[0].y);
+            // verts[1].x += 160 + (verts[1].x);
+            // verts[1].y += 128 + (verts[1].y);
+            // verts[2].x += 160 + (verts[2].x);
+            // verts[2].y += 128 + (verts[2].y);
 
-
-            // ++angle;
+            // //++angle;
 
             // FillEdgeLists((int)&verts[0], 0x2);
 
