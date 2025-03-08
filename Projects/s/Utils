@@ -582,9 +582,9 @@ QuadBlit
         CMP r4, #16 ; Reduced from 32 to 16 since bytes are halved
         BGE Continue
         RSB r4, r4, #16 ; Reverse order, reduced from 32 to 16
-        MOV r0, #&DD
-        EOR r0, r0, r0, LSL #8
-        EOR r0, r0, r0, LSL #16
+        ; MOV r0, #&DD
+        ; EOR r0, r0, r0, LSL #8
+        ; EOR r0, r0, r0, LSL #16
         MOV r1, r0
         MOV r2, r0
         MOV r3, r0
@@ -611,9 +611,9 @@ QuadBlit
         SUB r4, r10, r9 ; Get the number of pixels left
         MOV r4, r4, LSR #2
         RSB r4, r4, #4 ; reverse order
-        MOV r0, #&EE
-        EOR r0, r0, r0, LSL #8
-        EOR r0, r0, r0, LSL #16
+        ; MOV r0, #&EE
+        ; EOR r0, r0, r0, LSL #8
+        ; EOR r0, r0, r0, LSL #16
         ADD pc, pc, r4, LSL #2 ; If remaining width > 4 pixels, we can use this jump table.
         MOV r0, r0
         STR r0, [r9], #4
