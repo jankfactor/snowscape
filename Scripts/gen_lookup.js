@@ -97,16 +97,35 @@ const generateLookupRow = (row, palette, testColor) => {
   return rowIndices;
 };
 
+const dither2x2 = [
+  [0.0, 0.75],
+  [0.5, 0.25],
+];
+
+const dither4x4 = [
+  [0.0 / 16.0, 8.0 / 16.0, 2.0 / 16.0, 10.0 / 16.0],
+  [12.0 / 16.0, 4.0 / 16.0, 14.0 / 16.0, 6.0 / 16.0],
+  [3.0 / 16.0, 11.0 / 16.0, 1.0 / 16.0, 9.0 / 16.0],
+  [15.0 / 16.0, 7.0 / 16.0, 13.0 / 16.0, 5.0 / 16.0],
+];
+
+const dither = (x, y, size) => {
+  switch (size) {
+    case 2:
+      return dither2x2[y][x];
+    case 4:
+      return dither4x4[y][x];
+    default:
+      throw new Error("Unsupported dither size");
+  }
+};
+
 const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
   // Enough pixels to use a 2x2 bayer dither pattern
-  const dither = [
-    [0.0, 0.75],
-    [0.5, 0.25],
-  ];
 
   for (let dy = 0; dy < bayerSize; dy++) {
     for (let dx = 0; dx < bayerSize; dx++) {
-      const ditherValue = dither[dy][dx];
+      const ditherValue = dither(dx, dy, bayerSize);
       const pixelX = x * bayerSize + dx;
       const pixelY = y * bayerSize + dy;
 
@@ -140,10 +159,7 @@ const generateLookupTablePNG = (palette, testColor) => {
       col--;
 
       // The color changed or we reached the start of the row
-      if (
-        col <= 0 ||
-        rowIndices[col] !== rowIndices[nextColor]
-      ) {
+      if (col <= 0 || rowIndices[col] !== rowIndices[nextColor]) {
         prevColor = col;
         if (prevColor < 0) {
           prevColor = 0;
@@ -157,11 +173,14 @@ const generateLookupTablePNG = (palette, testColor) => {
         for (let x = prevColor; x < nextColor; x++) {
           let intensity = (x - prevColor) / spread;
 
-          if (firstBlock) {
-             intensity = Math.min(intensity, 0.7);
-          }
-
-          drawBayerPattern(x, y, intensity, palette[color1], palette[color2], png);
+          drawBayerPattern(
+            x,
+            y,
+            intensity,
+            palette[color1],
+            palette[color2],
+            png
+          );
         }
 
         if (firstBlock) {
