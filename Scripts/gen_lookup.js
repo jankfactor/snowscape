@@ -18,7 +18,7 @@ const inputPalette = [
   0x20a0e0,
 ];
 
-const rowLength = 64;
+const rowLength = 16;
 const bayerSize = 2; // Bayer pattern size (2x2)
 
 const findNearestColor = (color, palette) => {
@@ -142,12 +142,12 @@ const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
 };
 
 const generateLookupTablePNG = (palette, testColor) => {
-  const height = inputPalette.length * bayerSize; // Number of rows in the lookup table
+  const height = inputPalette.length * bayerSize * 2; // Number of rows in the lookup table
   const width = rowLength * bayerSize; // Number of columns in the lookup table
   const png = new PNG({ width, height });
 
   // Fill the PNG with the generated lookup table
-  for (let y = 0; y < height; y++) {
+  for (let y = 0; y < height / 2; y++) {
     const rowIndices = generateLookupRow(y, palette, testColor);
 
     let prevColor = rowIndices.length - 1;
@@ -179,12 +179,22 @@ const generateLookupTablePNG = (palette, testColor) => {
 
           drawBayerPattern(
             x,
-            y,
+            y * 2,
             intensity,
             palette[color1],
             palette[color2],
             png
           );
+
+          // TODO : Dither between the two rows
+          drawBayerPattern(
+            x,
+            (y * 2) + 1,
+            intensity,
+            palette[color1],
+            palette[color2],
+            png
+          );          
         }
 
         if (firstBlock) {
@@ -199,9 +209,79 @@ const generateLookupTablePNG = (palette, testColor) => {
   return png;
 };
 
+/**
+ * Exports PNG data to a binary lookup table format.
+ * Each pixel is stored as a 4-bit index to the palette.
+ * Two indices are packed into each byte (high nibble, low nibble).
+ */
+const exportPNGtoBinaryLookup = (png) => {
+  const width = png.width;
+  const height = png.height;
+  
+  // Create buffer to hold binary data (2 pixels per byte)
+  const bufferSize = Math.ceil((width * height) / 2);
+  const buffer = Buffer.alloc(bufferSize);
+  
+  let bufferIndex = 0;
+  let isHighNibble = true;
+  
+  // Process each pixel
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Get pixel color from PNG
+      const idx = (y * width + x) << 2;
+      const r = png.data[idx];
+      const g = png.data[idx + 1];
+      const b = png.data[idx + 2];
+      
+      // Convert RGB to hex format
+      const pixelColor = (r << 16) | (g << 8) | b;
+      
+      // Try to find exact match first (faster)
+      let paletteIndex = -1;
+      for (let i = 0; i < inputPalette.length; i++) {
+        if (inputPalette[i] === pixelColor) {
+          paletteIndex = i;
+          break;
+        }
+      }
+      
+      // If no exact match, use findNearestColor
+      if (paletteIndex === -1) {
+        paletteIndex = findNearestColor(pixelColor, inputPalette);
+      }
+      
+      // Pack two indices per byte
+      if (isHighNibble) {
+        // First index goes in high nibble (most significant 4 bits)
+        buffer[bufferIndex] = paletteIndex << 4;
+        isHighNibble = false;
+      } else {
+        // Second index goes in low nibble (least significant 4 bits)
+        buffer[bufferIndex] |= paletteIndex;
+        bufferIndex++;
+        isHighNibble = true;
+      }
+    }
+  }
+  
+  // Handle case where we have an odd number of pixels (half-filled byte)
+  if (!isHighNibble) {
+    bufferIndex++;
+  }
+  
+  return buffer;
+};
+
 // Generate and save the lookup table PNG
 console.log("Generating color lookup table...");
 const lookupTable = generateLookupTablePNG(inputPalette, testColor);
+const lookupTableBuffer = exportPNGtoBinaryLookup(lookupTable);
+console.log("Exporting lookup table to binary format...");
+fs.writeFileSync("color_lookup.bin", lookupTableBuffer);
+console.log("Lookup table saved as color_lookup.bin");
 const pngBuffer = PNG.sync.write(lookupTable);
 fs.writeFileSync("color_lookup.png", pngBuffer);
 console.log("Lookup table saved as color_lookup.png");
+
+
