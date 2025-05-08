@@ -515,9 +515,9 @@ Triv_DrawEdges
         ADD r0,r0,r7,LSL#2      ; Load the fog value
         TST v1_Y,#1             ; Does the triangle start on an odd line?
         LDRNE r7,[r0]             ; Load the fog value
-        LDRNE r8,[r0,#16]       ; Load the fog value offset by 16 bytes
+        LDRNE r8,[r0,#64]       ; Load the fog value offset by 16 bytes
         LDREQ r8,[r0]             ; Load the fog value
-        LDREQ r7,[r0,#16]       ; Load the fog value offset by 16 bytes
+        LDREQ r7,[r0,#64]       ; Load the fog value offset by 16 bytes
 
 ; ==========================================
 ; ========= RASTERIZE THE EDGE LIST ========

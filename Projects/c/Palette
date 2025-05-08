@@ -147,7 +147,7 @@ int LoadFogLookup(const char *filename)
         return 1;
     }
 
-    fread((void *)g_fogTable, sizeof(unsigned int), (16 * 32), file);
+    fread((void *)g_fogTable, sizeof(unsigned int), (4 * 16 * 32), file);
 
     fclose(file);
 

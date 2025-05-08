@@ -320,17 +320,17 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 k = abs((*tri)->centerpoint.y - eyePos->z);
                 j = (j > k) ? (j + (k >> 1)) : (k + (j >> 1));
 #ifdef A5000
-                j >>= 21;
-                j = max(0, j - 7);
+                j >>= 20;
+                j = max(0, j - 4);
 #else
-                j >>= 21;
-                j = max(0, j - 2);
+                j >>= 19;
+                j = max(0, j - 6);
 #endif // A5000
             }
 
-            k = (((*tri)->flags & 31) << 3) + j;
+            k = (((*tri)->flags & 31) << 5) + j;
 
-            if (j < 4 && orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
+            if (j < 16 && orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
                 FillEdgeLists((int)&_verts[0], k);
 
 #ifdef TIMING_LOG
