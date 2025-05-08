@@ -18,6 +18,9 @@ const inputPalette = [
   0x20a0e0,
 ];
 
+const rowLength = 64;
+const bayerSize = 2; // Bayer pattern size (2x2)
+
 const findNearestColor = (color, palette) => {
   const chroma = require("chroma-js");
 
@@ -79,14 +82,13 @@ const generateGradient = (startColor, endColor, steps) => {
 
 // Generate a row of the lookup table
 const generateLookupRow = (row, palette, testColor) => {
-  const width = 32;
   const paletteColor = palette[row % palette.length];
   // Generate a gradient from palette color to test color
-  const gradientColors = generateGradient(paletteColor, testColor, width);
+  const gradientColors = generateGradient(paletteColor, testColor, rowLength);
   const rowIndices = [];
 
   // Fill the row with the gradient, using nearest palette colors
-  for (let x = 0; x < width; x++) {
+  for (let x = 0; x < rowLength; x++) {
     const gradientColor = gradientColors[x];
     const nearestIndex = findNearestColor(gradientColor, palette);
     rowIndices.push(nearestIndex);
@@ -98,18 +100,18 @@ const generateLookupRow = (row, palette, testColor) => {
 const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
   // Enough pixels to use a 2x2 bayer dither pattern
   const dither = [
-    [0.2, 0.8],
-    [0.6, 0.4],
+    [0.0, 0.75],
+    [0.5, 0.25],
   ];
 
-  for (let dy = 0; dy < 2; dy++) {
-    for (let dx = 0; dx < 2; dx++) {
+  for (let dy = 0; dy < bayerSize; dy++) {
+    for (let dx = 0; dx < bayerSize; dx++) {
       const ditherValue = dither[dy][dx];
-      const pixelX = x * 2 + dx;
-      const pixelY = y * 2 + dy;
+      const pixelX = x * bayerSize + dx;
+      const pixelY = y * bayerSize + dy;
 
       // Choose color based on intensity
-      const color = intensity > ditherValue ? color1 : color2;
+      const color = intensity < ditherValue ? color1 : color2;
 
       // Set pixel color in the PNG
       png.data[(pixelY * png.width + pixelX) * 4] = (color >> 16) & 0xff; // Red
@@ -120,72 +122,53 @@ const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
   }
 };
 
-// const draw2x2Block = (x, y, color, png) => {
-//   // Draw a 2x2 block of the specified color
-//   for (let dy = 0; dy < 2; dy++) {
-//     for (let dx = 0; dx < 2; dx++) {
-//       const pixelX = x * 2 + dx;
-//       const pixelY = y * 2 + dy;
-
-//       // Set pixel color in the PNG
-//       png.data[(pixelY * png.width + pixelX) * 4] = (color >> 16) & 0xff; // Red
-//       png.data[(pixelY * png.width + pixelX) * 4 + 1] = (color >> 8) & 0xff; // Green
-//       png.data[(pixelY * png.width + pixelX) * 4 + 2] = color & 0xff; // Blue
-//       png.data[(pixelY * png.width + pixelX) * 4 + 3] = 0xff; // Alpha (fully opaque)
-//     }
-//   }
-// };
-
 const generateLookupTablePNG = (palette, testColor) => {
-  const height = 32; // Number of rows in the lookup table
-  const width = 64; // Number of columns in the lookup table
+  const height = inputPalette.length * bayerSize; // Number of rows in the lookup table
+  const width = rowLength * bayerSize; // Number of columns in the lookup table
   const png = new PNG({ width, height });
 
   // Fill the PNG with the generated lookup table
   for (let y = 0; y < height; y++) {
     const rowIndices = generateLookupRow(y, palette, testColor);
 
-    let firstColor = 0;
-    let nextColor = 0;
-    let col = 0;
+    let prevColor = rowIndices.length - 1;
+    let nextColor = rowIndices.length - 1;
+    let col = rowIndices.length - 1;
+    let firstBlock = true;
 
-    while (col < rowIndices.length) {
-      col++;
+    while (col >= 0) {
+      col--;
 
-      // The color changed or we reached the end of the row
+      // The color changed or we reached the start of the row
       if (
-        col >= rowIndices.length ||
-        rowIndices[col] !== rowIndices[firstColor]
+        col <= 0 ||
+        rowIndices[col] !== rowIndices[nextColor]
       ) {
-        nextColor = col;
-        if (nextColor >= rowIndices.length) {
-          nextColor = rowIndices.length - 1;
+        prevColor = col;
+        if (prevColor < 0) {
+          prevColor = 0;
         }
 
-        let spread = nextColor - firstColor;
+        let spread = nextColor - prevColor;
 
-        const color1 = rowIndices[firstColor];
+        const color1 = rowIndices[prevColor];
         const color2 = rowIndices[nextColor];
 
-        // if (spread > 4) {
-          for (let x = firstColor; x < nextColor; x++) {
-            const intensity = (x - firstColor) / spread;
-            drawBayerPattern(
-              x,
-              y,
-              intensity,
-              palette[color2],
-              palette[color1],
-              png
-            );
+        for (let x = prevColor; x < nextColor; x++) {
+          let intensity = (x - prevColor) / spread;
+
+          if (firstBlock) {
+             intensity = Math.min(intensity, 0.7);
           }
-          firstColor = nextColor;
-        // } else {
-        //   for (let x = firstColor; x < nextColor; x++) {
-        //     draw2x2Block(x, y, palette[rowIndices[firstColor]], png);
-        //   }
-        //   firstColor = nextColor;
-        // }
+
+          drawBayerPattern(x, y, intensity, palette[color1], palette[color2], png);
+        }
+
+        if (firstBlock) {
+          firstBlock = false;
+        }
+
+        nextColor = prevColor;
       }
     }
   }
