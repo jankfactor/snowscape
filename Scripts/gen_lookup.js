@@ -130,7 +130,7 @@ const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
       const pixelY = y * bayerSize + dy;
 
       // Choose color based on intensity
-      const color = intensity < ditherValue ? color1 : color2;
+      const color = intensity <= ditherValue ? color1 : color2;
 
       // Set pixel color in the PNG
       png.data[(pixelY * png.width + pixelX) * 4] = (color >> 16) & 0xff; // Red
@@ -170,8 +170,12 @@ const generateLookupTablePNG = (palette, testColor) => {
         const color1 = rowIndices[prevColor];
         const color2 = rowIndices[nextColor];
 
-        for (let x = prevColor; x < nextColor; x++) {
+        for (let x = prevColor; x <= nextColor; x++) {
           let intensity = (x - prevColor) / spread;
+
+          if (firstBlock) {
+            intensity = Math.min(intensity, 1.0 - (1.0 / (bayerSize * bayerSize)));
+          }
 
           drawBayerPattern(
             x,
