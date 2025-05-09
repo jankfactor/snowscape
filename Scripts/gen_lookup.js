@@ -6,7 +6,7 @@ const inputPalette = [
   0x4080a0,
   0x80c0e0,
   0xe0e0e0,
-  0x402000, 
+  0x402000,
   0x602000,
   0x804020,
   0xa06000,
@@ -141,6 +141,22 @@ const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
   }
 };
 
+const fill2x2BlockDiagonal = (x, y, png) => {
+  // Enough pixels to use a 2x2 bayer dither pattern
+
+  for (let i = 0; i < bayerSize; i++) {
+    const pixelX = x * bayerSize + i;
+    const pixelY = y * bayerSize + i;
+    const offsetY = (y - 1) * bayerSize + i;
+
+    // Set pixel color in the PNG
+    png.data[(offsetY * png.width + pixelX) * 4] = png.data[(pixelY * png.width + pixelX) * 4]
+    png.data[(offsetY * png.width + pixelX) * 4 + 1] = png.data[(pixelY * png.width + pixelX) * 4 + 1]
+    png.data[(offsetY * png.width + pixelX) * 4 + 2] = png.data[(pixelY * png.width + pixelX) * 4 + 2]
+    png.data[(offsetY * png.width + pixelX) * 4 + 3] = png.data[(pixelY * png.width + pixelX) * 4 + 3]
+  }
+};
+
 const generateLookupTablePNG = (palette, testColor) => {
   const height = inputPalette.length * bayerSize * 2; // Number of rows in the lookup table
   const width = rowLength * bayerSize; // Number of columns in the lookup table
@@ -189,7 +205,15 @@ const generateLookupTablePNG = (palette, testColor) => {
             png
           );
 
-          // TODO : Dither between the two rows
+          if (y > 0) {
+            fill2x2BlockDiagonal(
+              x,
+              y * 2,
+              png
+            );
+          }
+
+          // Fill out the second row of the Bayer pattern
           drawBayerPattern(
             x,
             y * 2 + 1,
