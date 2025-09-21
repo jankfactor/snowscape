@@ -1,21 +1,23 @@
-#include "Palette.h"
+#include "palette.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "kernel.h"
-#include "swis.h"
+#include <kernel.h>
+#include <swis.h>
 
-#include "CVector.h"
+#include "cvector.h"
 
 static _kernel_oserror *err;
 static _kernel_swi_regs rin, rout;
 
 unsigned int *g_fogTable;
+extern unsigned int FogTable;
 
 #define HEX_VAL(x) (((x) >> 16) & 0xFF), (((x) >> 8) & 0xFF), ((x) & 0xFF)
 
 static unsigned int inputPalette[16] = {
+#ifdef PAL_256
     (0x004488), // low blue
     (0x3377bb), // mid blue
     (0x77bbff), // high blue
@@ -32,6 +34,24 @@ static unsigned int inputPalette[16] = {
     (0x88CCE8),
     (0xA8ECE8),
     (0xE8ECE8),
+#else  // Original ST/Amiga Midwinter Palette
+    (0x000000),
+    (0x004060),
+    (0x206080),
+    (0x4080a0),
+    (0x80c0e0),
+    (0xe0e0e0),
+    (0x402000),
+    (0x602000),
+    (0x804020),
+    (0xa06000),
+    (0xc08060),
+    (0x004000),
+    (0x006000),
+    (0xa02000),
+    (0xc0c000),
+    (0x20a0e0),
+#endif // PAL_256
 };
 
 void SetupPaletteLookup(int allocating)
@@ -39,7 +59,12 @@ void SetupPaletteLookup(int allocating)
     if (allocating)
     {
         printf("Allocating tables required for 2x2 bayer lookup table...\n");
+#ifdef PAL_256
         cvector_reserve(g_fogTable, 64 * 2 * 256 * 4);
+#else
+        cvector_reserve(g_fogTable, 4 * 16 * 32 * 4);
+#endif // PAL_256
+        FogTable = (unsigned int)(g_fogTable);
         printf("Done.\n");
     }
     else
@@ -82,7 +107,7 @@ void SetPalette(void)
 
 void Save256()
 {
-    int i, j, h;
+    unsigned int i, j, h;
     char hex[200];
     FILE *file;
 
@@ -129,13 +154,18 @@ void Save256()
 
 /**
  * Loads a lookup table for the bayer dithering effect.
- * @param filename The name of the file to load.
  */
-int LoadFogLookup(const char *filename)
+int LoadFogLookup(void)
 {
     FILE *file;
     char buf[256];
     char *ptr;
+    const char *filename =
+#ifdef PAL_256
+        "assets.lookup";
+#else
+        "assets.lookup9";
+#endif // PAL_256
 
     sprintf(&buf[0], "%s.%s", gBaseDirectoryPath, filename);
     ptr = &buf[0];
@@ -147,7 +177,11 @@ int LoadFogLookup(const char *filename)
         return 1;
     }
 
+#ifdef PAL_256
     fread((void *)g_fogTable, sizeof(unsigned int), (64 * 2 * 256), file);
+#else
+    fread((void *)g_fogTable, sizeof(unsigned int), (4 * 16 * 32), file);
+#endif // PAL_256
 
     fclose(file);
 

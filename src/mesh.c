@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include "Mesh.h"
+#include "mesh.h"
 
 #define rand32(max) (((rand() << 16) | rand()) % (max))
 #define rand32balanced(max) ((((rand() << 16) | rand()) % (max)) - ((max) >> 1))
@@ -18,11 +18,14 @@ void GenerateTerrain()
     V3D _verts[4];
     V3D *ptrV3D = 0;
     TRI face;
-    int vertcounter = 0, facecounter = 0;
+    int facecounter = 0;
     fix tl, tr, bl, br;
+
+#ifdef PAL_256
     unsigned char range[48] = {49, 49, 49, 49, 89, 89, 89, 89, 90, 90, 91, 91, 92, 92, 118, 118,
                                32, 32, 32, 32, 35, 35, 40, 40, 68, 68, 68, 112, 112, 115, 115, 113,
                                160, 160, 160, 160, 161, 161, 161, 161, 194, 194, 194, 194, 247, 247, 255, 255};
+#endif // PAL_256
 
     // srand(time(NULL));
     srand(55555);
@@ -116,13 +119,18 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
-                k = clamp(12 + (((tl - tr) + (tl - bl)) >> 17), 0, 15);
+#ifdef PAL_256
+                k = clamp(12 + (((tl - tr) + (tl - bl)) >> 16), 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
-
                 face.flags = range[k];
+#else
+                k = clamp(6 + (((tl - tr) + (tl - bl)) >> 18), 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
                 g_Mesh.faces[facecounter++] = face;
 
                 /* BR
@@ -138,17 +146,24 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
-                k = clamp(12 + (((bl - br) + (tr - br)) >> 17), 0, 15);
-                if (br > SNOWLEVEL)
+
+#ifdef PAL_256
+                k = clamp(12 + (((bl - br) + (tr - br)) >> 16), 0, 15);
+                if (tl > SNOWLEVEL)
                     k += 32;
-                else if (br > SANDLEVEL)
+                else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
+#else
+                k = clamp(6 + (((bl - br) + (tr - br)) >> 18), 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
                 g_Mesh.faces[facecounter++] = face;
             }
             else
             {
-                
+
                 /* TR
                    ___
                    \  |
@@ -162,12 +177,19 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
+
+#ifdef PAL_256
                 k = clamp(12 + (((tl - tr) + (tr - br)) >> 16), 0, 15);
-                if (tr > SNOWLEVEL)
+                if (tl > SNOWLEVEL)
                     k += 32;
-                else if (tr > SANDLEVEL)
+                else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
+#else
+                k = clamp(6 + (((tl - tr) + (tr - br)) >> 17), 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
                 g_Mesh.faces[facecounter++] = face;
 
                 /* BL
@@ -183,12 +205,19 @@ void GenerateTerrain()
                 face.next = NULL;
                 face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
                 face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
+
+#ifdef PAL_256
                 k = clamp(12 + (((bl - br) + (tl - bl)) >> 16), 0, 15);
-                if (bl > SNOWLEVEL)
+                if (tl > SNOWLEVEL)
                     k += 32;
-                else if (bl > SANDLEVEL)
+                else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
+#else
+                k = clamp(6 + (((bl - br) + (tl - bl)) >> 17), 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
                 g_Mesh.faces[facecounter++] = face;
             }
         }

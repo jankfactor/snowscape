@@ -50,9 +50,9 @@ extern fix *g_SineTable;
 
 // Reciprocal table e.g., 1/a
 #define ONEOVERTABLE_SIZE 1024
-#define oneover(a) g_OneOver[(a)]
+#define oneover(a) g_oneOver[(a)]
 #define multOneOver(a, b) (fix)((a >> 16) * (oneover(b))) // Essentially INT * FIX, useful for reciprocal
-extern fix *g_OneOver;
+extern fix *g_oneOver;
 
 // Edge list buffers
 #define EDGELIST_SIZE 256 // 256 * 4 = 1024 bytes, max screen height of 256

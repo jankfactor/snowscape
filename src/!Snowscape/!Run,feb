@@ -1,0 +1,6 @@
+Set Game$Dir <Obey$Dir>
+WimpSlot -min 2048K -max 2048K
+| RMLoad <Game$Dir>.CLib
+| RMEnsure CallASWI 0.19 RMLoad <Game$Dir>.CallASWI
+| RMEnsure SharedUnixLibrary 1.07 RMLoad <Game$Dir>.SharedULib
+<Game$Dir>.!RunImage

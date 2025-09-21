@@ -27,22 +27,18 @@ ESCAPE - Return to RISCOS
 - When you reach the edge of the terrain, you'll be abruptly reset to the starting position. TODO - like the original Midwinter, we could reset the camera and generate the terrain to match the next section you're in. 
 - Performance could probably be improved by moving more C into ARM assembly... but it's worth playing the original Midwinter on a stock STFM or A500 as a reminder of the original framerate... 😜 
 - Why is there a blue line at the bottom? Because when I draw there I get a stack heap corruption on exit. 😱 It'll be something trivial, it always is... 
+- Needs a 4MB setup. Could probably be fixed to run on 2MB machines.
 
 ### Building Prerequisites
-- RPCEmu or Arculator
-- Acorn C++ / DDE 
-  - Modern DDE with (32bit C99 support and more) available from [RiscOS Open](https://riscosopen.org/content/sales/dde)
-  - Last major release (26bit C89 support) is included in the [RPCEmu Easy-Start bundle](https://www.marutan.net/rpcemu/index.php)
+Either of the following GCC cross-compiler build systems can be used to create the RISCOS binary. Both can be built and used using Linux, WSL in Windows, and Docker with Ubuntu in MacOS (ArchieSDK has a MacOS-native build now).
+- [GCCSDK](https://www.stevefryatt.org.uk/risc-os/build-tools/environment) - An older GCC 4 build SDK commonly used for RISCOS Open development
+- [ArchieSDK](https://gitlab.com/_targz/archiesdk) - A more recent GCC 8 build by Tara Colin and various contributors, particularly of interest to the Acorn demoscene.
 
 ### Building
-1. Checkout the repo and copy (or ideally, symlink for ease of development) the `Project` folder into your `hostfs` folder for your emulator.
-2. Ensure the build tools are available. (i.e., run `$HostFS::HostFS.$.AcornC_C++.!SetPaths`)
-3. Open the Projects folder.
-4. Double-click the Makefile to generate the `!MeshRenderer` executable.
-5. Run the generated `!Run` script (which sets some environment variables) to launch.
-
-### Building for lower-end Archimedes (A3000/A3010/A3020)
-Remove the A5000 define from the CC flags in the Makefile (i.e., the `-DA5000` on the `CCflags` section near the top). This will use a smaller grid to render.
+1. Open `build.sh` and ensure the output directory matches where you'd like the resultant App to go. (probably your Arculator hostfs folder)
+2. Choose the toolchain you want `GCCSDK` or `ARCHIESDK`.
+3. Choose 256 color and/or A5000 mode. The A5000 mode has a further draw distance and will perform much slower on A30X0 machines.
+4. Run `build.sh` - if no errors, it should have copied the `!Snowscape` app to your hostfs and you can double-click the App to start it
 
 ### Running on Original Hardware
 Use an emulator (Arculator, RPCEmu, ArchiEmu, etc.) to copy the Projects folder onto an ADF and either use that in a Gotek, or use it to prepare a floppy disk. This is to preserve the file types that are set up on HostFS so that they run correctly on native RISCOS. 
@@ -62,5 +58,7 @@ The Maelstrom team (particularly in memory of [Mike Singleton](https://en.wikipe
 David Ruck for his superb [TimerMod](https://armclub.org.uk/free/) utility which is available from his site which made profiling many of the routines far easier.
 
 The amazing [Bitshifters](https://bitshifters.github.io/index.html) team for always being generous with their knowledge and pushing the Archimedes and BBC Micro to it's limits with their amazing demos!
+
+[Tara Colin](https://gitlab.com/_targz/archiesdk), and others who have contributed to the ArchieSDK tools which has opened up an exciting new chapter in demoscene development for early RISCOS machines. 
 
 Tom Sneddon for helping me fix the CORS issue which means we can link to Archimedes Live! direct from here. Also check out `b2`, his amazing [BBC Micro Emulator](https://github.com/tom-seddon/b2)! 

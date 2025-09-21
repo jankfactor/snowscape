@@ -1,8 +1,8 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include "Math3D.h"
-#include "CVector.h"
+#include "math3d.h"
+#include "cvector.h"
 
 #define MAPW 128
 #define _MAPW 127

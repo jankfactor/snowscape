@@ -1,12 +1,13 @@
-#include "Math3D.h"
+#include "math3d.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "CVector.h"
+#include "cvector.h"
 
-fix *g_OneOver;   // Reciprocal table (for max screen height of 256 in Mode 13)
+fix *g_oneOver;   // Reciprocal table (for max screen height of 256 in Mode 13)
+extern unsigned int OneOver; // Address of the above table for ASM access
 fix *g_SineTable; // SIN table. Offset used for COS.
 
 void SetupMathsGlobals(int isAllocating)
@@ -15,14 +16,15 @@ void SetupMathsGlobals(int isAllocating)
     {
         printf("Allocating tables required for Math3D...\n");
         cvector_reserve(g_SineTable, SINETABLE_SIZE);
-        cvector_reserve(g_OneOver, ONEOVERTABLE_SIZE);
+        cvector_reserve(g_oneOver, ONEOVERTABLE_SIZE);
+        OneOver = (unsigned int)(g_oneOver);
         printf("Done.\n");
     }
     else
     {
         printf("Freeing tables required for Math3D...\n");
         cvector_free(g_SineTable);
-        cvector_free(g_OneOver);
+        cvector_free(g_oneOver);
         printf("Done.\n");
     }
 }
@@ -262,7 +264,7 @@ void LookAt(const V3D *eyePos, const V3D *forward, MAT43 *mat)
 
 void PerspectiveProjection(MAT44 *mat, float fov, float aspect, float znear, float zfar)
 {
-    float yScale = 1.f / tan(fov / 2.f);
+    float yScale = 1.f / tanf(fov / 2.f);
     float xScale = yScale * aspect;
 
     mat->m11 = float2fix(xScale);

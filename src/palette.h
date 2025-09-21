@@ -8,6 +8,6 @@ extern unsigned int *g_fogTable;
 void SetupPaletteLookup(int allocating);
 void SetPalette(void);
 void Save256(void);
-int LoadFogLookup(const char *filename);
+int LoadFogLookup(void);
 
 #endif // PALETTE_H

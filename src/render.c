@@ -1,9 +1,9 @@
-#include "kernel.h"
+#include <kernel.h>
 
-#include "Render.h"
-#include "Math3D.h"
-#include "Mesh.h"
-#include "Palette.h"
+#include "render.h"
+#include "math3d.h"
+#include "mesh.h"
+#include "palette.h"
 
 extern void SortVertices(int triList);
 extern void DrawTriangle(int triList, int color);
@@ -40,20 +40,9 @@ int GetRenderDelta(void)
 }
 #endif // TIMING_LOG
 
-void SetupRender(int allocating)
+void SetupRender(void)
 {
     memset(g_RenderQueue, 0, MAXDEPTH * sizeof(TRI *));
-
-    // if (allocating)
-    // {
-    //     printf("Allocating %d bytes for render queue\n", MAXDEPTH * sizeof(TRI *));
-    //     cvector_reserve(g_RenderQueue, MAXDEPTH);
-    // }
-    // else
-    // {
-    //     printf("Freeing render queue\n");
-    //     cvector_free(g_RenderQueue);
-    // }
 }
 
 #define interpolate(a, b)                                         \
@@ -305,8 +294,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 _verts[0] = clippedNearVerts[(*tri)->a];
                 _verts[1] = clippedNearVerts[(*tri)->b];
                 _verts[2] = clippedNearVerts[(*tri)->c];
-
-                k = (((*tri)->flags & 255) << 7); // Don't bother fogging clipped tris that are near
+                j = 0;
             }
             else
             {
@@ -320,17 +308,35 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 j = abs((*tri)->centerpoint.x - eyePos->x);
                 k = abs((*tri)->centerpoint.y - eyePos->z);
                 j = (j > k) ? (j + (k >> 1)) : (k + (j >> 1));
+
+#ifdef PAL_256
 #ifdef A5000
                 j >>= 18;
-                k = (((*tri)->flags & 255) << 7) + max(0, min(j - 16, 63));
+                j = max(0, min(j - 16, 63));
 #else
                 j >>= 17;
-                k = (((*tri)->flags & 255) << 7) + max(0, min(j - 28, 63));
+                j = max(0, min(j - 16, 63));
 #endif // A5000
+#else  // 16 COLOR
+#ifdef A5000
+                j >>= 20;
+                j = max(0, j - 4);
+#else
+                j >>= 19;
+                j = max(0, j - 6);
+#endif // A5000
+#endif // PAL_256
             }
 
+#ifdef PAL_256
+            k = (((*tri)->flags & 255) << 7) + j;
             if (orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
                 FillEdgeLists((int)&_verts[0], k);
+#else
+            k = (((*tri)->flags & 31) << 5) + j;
+            if (j < 16 && orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
+                FillEdgeLists((int)&_verts[0], k);
+#endif // PAL_256
 
 #ifdef TIMING_LOG
             largest = max(largest, abs(_verts[0].x));

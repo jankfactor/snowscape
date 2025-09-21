@@ -5,9 +5,9 @@
 #define SCREEN_H 256
 #define MAXDEPTH 256
 
-#include "Math3D.h"
+#include "math3d.h"
 
-void SetupRender(int allocating);
+void SetupRender(void);
 void RenderModel(MAT43 *mv, V3D *eyePos, int yaw);
 void MultV3DProj(V3D *v, int *clipflags);
 
