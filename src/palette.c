@@ -54,6 +54,9 @@ static unsigned int inputPalette[16] = {
 #endif // PAL_256
 };
 
+/** Allocate or release storage shared with the assembly fog rasterizer.
+ * @param allocating Non-zero to allocate; zero to release.
+ */
 void SetupPaletteLookup(int allocating)
 {
     if (allocating)
@@ -75,9 +78,11 @@ void SetupPaletteLookup(int allocating)
     }
 }
 
-// The Archimedes 256-color palette is only slightly tweakable. We cant set
-// 16 colors to (mostly) any value we want, with the rest being a sort of
-// 'house mix' of other colors and tints.
+/** Program the sixteen configurable logical colours used by the renderer.
+ *
+ * The Archimedes 256-colour palette exposes sixteen mostly configurable
+ * colours; VIDC derives the remaining entries as a house mixture.
+ */
 void SetPalette(void)
 {
     typedef struct PalEntry
@@ -105,7 +110,8 @@ void SetPalette(void)
     }
 }
 
-void Save256()
+/** Dump the current hardware palette and logical-colour match counts. */
+void Save256(void)
 {
     unsigned int i, j, h;
     char hex[200];
@@ -152,8 +158,8 @@ void Save256()
     fclose(file);
 }
 
-/**
- * Loads a lookup table for the bayer dithering effect.
+/** Load the precomputed Bayer-dithered distance-fog table.
+ * @return Zero on success; non-zero if the lookup asset cannot be opened.
  */
 int LoadFogLookup(void)
 {

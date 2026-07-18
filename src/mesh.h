@@ -8,7 +8,15 @@
 #define _MAPW 127
 #define MAPSHIFT 7
 
-#define TILESHIFT 4 // 16x16 tiles
+#define TILESHIFT 1 /* Midwinter's fully zoomed terrain cells are 2x2 units. */
+#define CELL_TO_WORLD_SHIFT (16 + TILESHIFT)
+#define CELL_SIZE_FIX (1 << CELL_TO_WORLD_SHIFT)
+#define CELL_QUARTER_FIX (CELL_SIZE_FIX >> 2)
+#define CELL_THREE_QUARTER_FIX (CELL_QUARTER_FIX * 3)
+
+/* Quantities tuned for the old 16-unit cells need three fewer shift bits. */
+#define LEGACY_TILESHIFT 4
+#define WORLD_SCALE_REDUCTION (LEGACY_TILESHIFT - TILESHIFT)
 #define IX(x, z) (((x) & _MAPW) + (((z) & _MAPW) << (MAPSHIFT)))
 
 typedef struct Mesh
@@ -20,9 +28,17 @@ typedef struct Mesh
 
 extern Mesh g_Mesh;
 
-void GenerateTerrain(void);
+/** Load, subdivide, shade, and triangulate the Midwinter terrain patch.
+ * @param baseDirectoryPath RISC OS application path containing the assets.
+ * @return Zero on success; non-zero if terrain preparation fails.
+ */
+int GenerateTerrain(const char *baseDirectoryPath);
+/** Release all dynamically allocated terrain mesh arrays. */
 void DeAllocateTerrain(void);
+/** Interpolate the terrain surface beneath a world-space position.
+ * @param eyePos Position whose X/Z coordinates select the terrain triangle.
+ * @return Surface height plus camera clearance in 16.16 fixed point.
+ */
 fix GetHeight(V3D *eyePos);
 
 #endif // MESH_H
-

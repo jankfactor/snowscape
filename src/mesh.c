@@ -1,22 +1,266 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "mesh.h"
 
-#define rand32(max) (((rand() << 16) | rand()) % (max))
-#define rand32balanced(max) ((((rand() << 16) | rand()) % (max)) - ((max) >> 1))
-
 Mesh g_Mesh;
 
-#define SNOWLEVEL -655360
-#define SANDLEVEL -3276800
+#define SNOWLEVEL -81920
+#define SANDLEVEL -409600
+#define ZBUFFER_SIZE 10000
+#define SEED_SIZE 50
+#define GENERATED_SIZE 100
+#define TERRAIN_MARGIN ((MAPW - GENERATED_SIZE) / 2)
+#define HEIGHT_TO_FIX 256
+#define TERRAIN_SHADE_SHIFT (16 - WORLD_SCALE_REDUCTION)
 
-void GenerateTerrain()
+typedef struct HeightCell
 {
-    int i, j, k, bsize, csize, rnd;
-    V3D vertex, light;
-    V3D _verts[4];
-    V3D *ptrV3D = 0;
+    unsigned short height;
+    unsigned short detail;
+} HeightCell;
+
+/** Interpret an unsigned terrain word with the original signed 16-bit semantics.
+ * @param value Raw terrain word.
+ * @return The same bit pattern interpreted as a signed short.
+ */
+static short SignedWord(unsigned short value)
+{
+    return (short)value;
+}
+
+/** Classify a terrain face using its sun-facing slope and deterministic hash.
+ * @param riseX Height rise toward the light along X.
+ * @param riseZ Height rise toward the light along Z.
+ * @param hash Midwinter terrain detail/hash word.
+ * @param secondTriangle Non-zero to use the hash byte for the second face.
+ * @param base Neutral palette-ramp class.
+ * @param shift Fixed-point slope scaling shift.
+ * @param minimum Lowest permitted class.
+ * @param maximum Highest permitted class.
+ * @return Clamped palette-ramp class.
+ *
+ * Midwinter classifies a face from its slope towards the sun, then uses the
+ * terrain hash to break up otherwise solid bands of equal-coloured triangles.
+ * The recovered notes do not yet identify the final 3D palette-byte table, so
+ * keep Snowscape's palette ramps and reproduce the confirmed classification
+ * inputs here. Each half of a cell uses a different byte of the hash word.
+ */
+static int TerrainShadeClass(fix riseX, fix riseZ, unsigned short hash,
+                             int secondTriangle, int base, int shift,
+                             int minimum, int maximum)
+{
+    static const signed char hashVariationTable[4] = {-1, 0, 0, 1};
+    unsigned char hashByte;
+    int hashVariation;
+
+    hashByte = secondTriangle ? (unsigned char)hash :
+                                (unsigned char)(hash >> 8);
+    hashVariation = hashVariationTable[(hashByte >> 6) & 3];
+
+    return clamp(base + ((riseX + riseZ) >> shift) + hashVariation,
+                 minimum, maximum);
+}
+
+/** Generate one deterministic Midwinter midpoint sample from four corners.
+ * @param a First corner and hash source.
+ * @param b Second corner.
+ * @param c Third corner.
+ * @param d Fourth corner.
+ * @param shift Roughness shift for the current subdivision level.
+ * @return Generated height/detail cell.
+ */
+static HeightCell Midpoint(HeightCell a, HeightCell b, HeightCell c, HeightCell d, int shift)
+{
+    unsigned int sum;
+    unsigned short sumLow;
+    short average;
+    short base;
+    short multiplier;
+    int product;
+    HeightCell result;
+
+    sum = ((unsigned int)a.height << 16) | a.detail;
+    sum += ((unsigned int)b.height << 16) | b.detail;
+    sum += ((unsigned int)c.height << 16) | c.detail;
+    sum += ((unsigned int)d.height << 16) | d.detail;
+
+    sumLow = (unsigned short)sum;
+    average = SignedWord((unsigned short)(sum >> 16)) >> 2;
+    base = SignedWord(sumLow) >> shift;
+    multiplier = SignedWord((unsigned short)(average * 8 + 0x1388));
+    product = (int)base * (int)multiplier;
+
+    result.height = (unsigned short)(average + (product >> 16));
+    result.detail = (unsigned short)((sumLow ^ a.detail) & 0x3fff);
+    return result;
+}
+
+/** Expand a 50x50 terrain window into the game's 100x100 working grid.
+ * @param source Source cells in row-major order.
+ * @param output Destination buffer for 100x100 cells.
+ * @param shift Roughness shift for generated midpoint displacement.
+ */
+static void SubdivideTerrain(const HeightCell *source, HeightCell *output, int shift)
+{
+    HeightCell centers[SEED_SIZE];
+    HeightCell previousCenters[SEED_SIZE];
+    HeightCell horizontal[SEED_SIZE];
+    HeightCell vertical[SEED_SIZE];
+    HeightCell zero;
+    int x, y;
+
+    zero.height = 0;
+    zero.detail = 0;
+    for (x = 0; x < SEED_SIZE; ++x)
+        previousCenters[x] = zero;
+
+    for (y = 0; y < SEED_SIZE; ++y)
+    {
+        for (x = 0; x < SEED_SIZE - 1; ++x)
+        {
+            if (y < SEED_SIZE - 1)
+            {
+                centers[x] = Midpoint(source[y * SEED_SIZE + x],
+                                      source[y * SEED_SIZE + x + 1],
+                                      source[(y + 1) * SEED_SIZE + x],
+                                      source[(y + 1) * SEED_SIZE + x + 1], shift);
+            }
+            else
+            {
+                centers[x] = previousCenters[x];
+            }
+        }
+        centers[SEED_SIZE - 1] = centers[SEED_SIZE - 2];
+
+        /* The original's first previous-center row is stale scratch data. Its
+           influence is confined to an outer row that no centered zoom keeps. */
+        if (y == 0)
+            for (x = 0; x < SEED_SIZE; ++x)
+                previousCenters[x] = centers[x];
+
+        for (x = 0; x < SEED_SIZE - 1; ++x)
+        {
+            horizontal[x] = Midpoint(centers[x], previousCenters[x],
+                                     source[y * SEED_SIZE + x],
+                                     source[y * SEED_SIZE + x + 1], shift);
+        }
+        horizontal[SEED_SIZE - 1] = horizontal[SEED_SIZE - 2];
+
+        for (x = 0; x < SEED_SIZE - 2; ++x)
+        {
+            if (y < SEED_SIZE - 1)
+            {
+                vertical[x] = Midpoint(centers[x], centers[x + 1],
+                                       source[y * SEED_SIZE + x + 1],
+                                       source[(y + 1) * SEED_SIZE + x + 1], shift);
+            }
+            else
+            {
+                vertical[x] = centers[x];
+            }
+        }
+        vertical[SEED_SIZE - 2] = vertical[SEED_SIZE - 3];
+        vertical[SEED_SIZE - 1] = vertical[SEED_SIZE - 2];
+
+        for (x = 0; x < SEED_SIZE; ++x)
+        {
+            output[(y * 2) * GENERATED_SIZE + x * 2] = source[y * SEED_SIZE + x];
+            output[(y * 2) * GENERATED_SIZE + x * 2 + 1] = horizontal[x];
+            output[(y * 2 + 1) * GENERATED_SIZE + x * 2] =
+                (x == 0) ? centers[0] : vertical[x - 1];
+            output[(y * 2 + 1) * GENERATED_SIZE + x * 2 + 1] = centers[x];
+        }
+
+        for (x = 0; x < SEED_SIZE; ++x)
+            previousCenters[x] = centers[x];
+    }
+}
+
+/** Load ZBUFFER and generate the selected fully zoomed terrain patch.
+ * @param baseDirectoryPath RISC OS application path containing ZBUFFER.
+ * @param terrain Destination buffer for 100x100 cells.
+ * @return Zero on success; non-zero on file or allocation failure.
+ */
+static int LoadCenteredTerrain(const char *baseDirectoryPath, HeightCell *terrain)
+{
+    unsigned char bytes[ZBUFFER_SIZE];
+    HeightCell *window;
+    FILE *file;
+    char filename[256];
+    int level, shift, x, y, px, py;
+
+    srand((unsigned int)time(NULL));
+
+    if (baseDirectoryPath == NULL)
+    {
+        printf("Game$Dir is not set.\n");
+        return 1;
+    }
+
+    sprintf(filename, "%s.assets.ZBUFFER", baseDirectoryPath);
+    file = fopen(filename, "rb");
+    if (file == NULL)
+    {
+        printf("Failed to open file: %s\n", filename);
+        return 1;
+    }
+    if (fread(bytes, 1, ZBUFFER_SIZE, file) != ZBUFFER_SIZE)
+    {
+        printf("Failed to read %d bytes from: %s\n", ZBUFFER_SIZE, filename);
+        fclose(file);
+        return 1;
+    }
+    fclose(file);
+
+    window = (HeightCell *)malloc(SEED_SIZE * SEED_SIZE * sizeof(HeightCell));
+    if (window == NULL)
+    {
+        printf("Failed to allocate terrain generation window.\n");
+        return 1;
+    }
+
+    /* ZBUFFER.BIN stores each 16-bit word in big-endian order. */
+    for (y = 0; y < SEED_SIZE; ++y)
+        for (x = 0; x < SEED_SIZE; ++x)
+        {
+            int offset = (y * SEED_SIZE + x) * 4;
+            window[y * SEED_SIZE + x].height =
+                (unsigned short)((bytes[offset] << 8) | bytes[offset + 1]);
+            window[y * SEED_SIZE + x].detail =
+                (unsigned short)((bytes[offset + 2] << 8) | bytes[offset + 3]);
+        }
+
+    /* Generate the main map, then select its centered 50x50 window four
+       times: the maximum zoom supported by Midwinter's map pipeline. */
+    px = 8 + rand() % (SEED_SIZE - 8);
+    py = 8 + rand() % (SEED_SIZE - 8);
+    for (level = 0; level <= 4; ++level)
+    {
+        shift = (level < 2) ? 4 : level + 3;
+        SubdivideTerrain(window, terrain, shift);
+        if (level < 4)
+            for (y = 0; y < SEED_SIZE; ++y)
+                for (x = 0; x < SEED_SIZE; ++x)
+                    window[y * SEED_SIZE + x] =
+                        terrain[(py + y) * GENERATED_SIZE + px + x];
+    }
+
+    free(window);
+    return 0;
+}
+
+/** Construct world vertices and shaded checkerboard faces from ZBUFFER terrain.
+ * @param baseDirectoryPath RISC OS application path containing terrain assets.
+ * @return Zero on success; non-zero if terrain loading or allocation fails.
+ */
+int GenerateTerrain(const char *baseDirectoryPath)
+{
+    int i, j, k;
+    int terrainX, terrainZ;
+    unsigned short terrainHash;
+    HeightCell *terrain;
     TRI face;
     int facecounter = 0;
     fix tl, tr, bl, br;
@@ -27,8 +271,17 @@ void GenerateTerrain()
                                160, 160, 160, 160, 161, 161, 161, 161, 194, 194, 194, 194, 247, 247, 255, 255};
 #endif // PAL_256
 
-    // srand(time(NULL));
-    srand(55555);
+    terrain = (HeightCell *)malloc(GENERATED_SIZE * GENERATED_SIZE * sizeof(HeightCell));
+    if (terrain == NULL)
+    {
+        printf("Failed to allocate generated terrain.\n");
+        return 1;
+    }
+    if (LoadCenteredTerrain(baseDirectoryPath, terrain) != 0)
+    {
+        free(terrain);
+        return 1;
+    }
 
     printf("Reserving %d bytes for Terrain Vertices...\n", MAPW * MAPW * sizeof(V3D));
     cvector_reserve(g_Mesh.verts, MAPW * MAPW);
@@ -40,60 +293,15 @@ void GenerateTerrain()
     for (j = 0; j < MAPW; ++j)
         for (i = 0; i < MAPW; ++i)
         {
-            g_Mesh.verts[IX(i, j)].x = int2fix(i << TILESHIFT);
-            g_Mesh.verts[IX(i, j)].z = int2fix(j << TILESHIFT);
-            g_Mesh.verts[IX(i, j)].y = 0;
+            g_Mesh.verts[IX(i, j)].x = i * CELL_SIZE_FIX;
+            g_Mesh.verts[IX(i, j)].z = j * CELL_SIZE_FIX;
+            terrainX = clamp(i - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
+            terrainZ = clamp(j - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
+            /* Midwinter's signed 8.8 heights convert directly to 16.16. */
+            g_Mesh.verts[IX(i, j)].y = ((fix)SignedWord(
+                terrain[terrainZ * GENERATED_SIZE + terrainX].height)) *
+                HEIGHT_TO_FIX;
         }
-
-    bsize = MAPW / 4;
-    csize = bsize / 2;
-    rnd = int2fix(MAPW);
-
-    while (bsize > 1)
-    {
-        // Edges
-        for (i = 0; i < MAPW; i += bsize)
-            for (j = 0; j < MAPW; j += bsize)
-            {
-                k = g_Mesh.verts[IX(i, j)].y + g_Mesh.verts[IX(i + bsize, j)].y;
-                k >>= 1;
-                k += rand32balanced(rnd);
-
-                g_Mesh.verts[IX(i + csize, j)].y = k;
-
-                k = g_Mesh.verts[IX(i, j)].y + g_Mesh.verts[IX(i, j + bsize)].y;
-                k >>= 1;
-                k += rand32balanced(rnd);
-
-                g_Mesh.verts[IX(i, j + csize)].y = k;
-            }
-
-        // Center
-        for (i = 0; i < MAPW; i += bsize)
-            for (j = 0; j < MAPW; j += bsize)
-            {
-                k = g_Mesh.verts[IX(i + csize, j)].y +
-                    g_Mesh.verts[IX(i, j + csize)].y +
-                    g_Mesh.verts[IX(i + bsize, j + csize)].y +
-                    g_Mesh.verts[IX(i + csize, j + bsize)].y;
-                k >>= 2;
-                k += rand32balanced(rnd);
-
-                g_Mesh.verts[IX(i + csize, j + csize)].y = k;
-            }
-
-        rnd >>= 1;
-
-        bsize >>= 1;
-        csize >>= 1;
-    };
-
-    for (i = 0; i < MAPW * MAPW; ++i)
-    {
-        if (g_Mesh.verts[i].y < 0)
-            g_Mesh.verts[i].y >>= 1;
-    }
-
     for (j = 0; j < MAPW; ++j)
         for (i = 0; i < MAPW; ++i)
         {
@@ -101,6 +309,9 @@ void GenerateTerrain()
             tr = g_Mesh.verts[IX(i + 1, j)].y;
             bl = g_Mesh.verts[IX(i, j + 1)].y;
             br = g_Mesh.verts[IX(i + 1, j + 1)].y;
+            terrainX = clamp(i - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
+            terrainZ = clamp(j - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
+            terrainHash = terrain[terrainZ * GENERATED_SIZE + terrainX].detail;
 
             // Midwinter used a |/|\| pattern for the terrain.
             //                  |\|/|
@@ -117,17 +328,19 @@ void GenerateTerrain()
                 face.b = (i + 1) + j * (MAPW);
                 face.c = i + (j + 1) * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
-                face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
 #ifdef PAL_256
-                k = clamp(12 + (((tl - tr) + (tl - bl)) >> 16), 0, 15);
+                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
+                                      12, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = clamp(6 + (((tl - tr) + (tl - bl)) >> 18), 2, 10);
+                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
+                                      6, TERRAIN_SHADE_SHIFT + 2, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -144,18 +357,20 @@ void GenerateTerrain()
                 face.b = i + (j + 1) * (MAPW);
                 face.c = (i + 1) + j * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
-                face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
 
 #ifdef PAL_256
-                k = clamp(12 + (((bl - br) + (tr - br)) >> 16), 0, 15);
+                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
+                                      12, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = clamp(6 + (((bl - br) + (tr - br)) >> 18), 2, 10);
+                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
+                                      6, TERRAIN_SHADE_SHIFT + 2, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -175,18 +390,20 @@ void GenerateTerrain()
                 face.b = (i + 1) + j * (MAPW);
                 face.c = (i + 1) + (j + 1) * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(12);
-                face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(4);
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
 
 #ifdef PAL_256
-                k = clamp(12 + (((tl - tr) + (tr - br)) >> 16), 0, 15);
+                k = TerrainShadeClass(tl - tr, tr - br, terrainHash, 0,
+                                      12, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = clamp(6 + (((tl - tr) + (tr - br)) >> 17), 2, 10);
+                k = TerrainShadeClass(tl - tr, tr - br, terrainHash, 0,
+                                      6, TERRAIN_SHADE_SHIFT + 1, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -203,24 +420,28 @@ void GenerateTerrain()
                 face.b = (i + 1) + (j + 1) * (MAPW);
                 face.c = i + (j + 1) * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = int2fix(i << TILESHIFT) + int2fix(4);
-                face.centerpoint.y = int2fix(j << TILESHIFT) + int2fix(12);
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
 
 #ifdef PAL_256
-                k = clamp(12 + (((bl - br) + (tl - bl)) >> 16), 0, 15);
+                k = TerrainShadeClass(bl - br, tl - bl, terrainHash, 1,
+                                      12, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = clamp(6 + (((bl - br) + (tl - bl)) >> 17), 2, 10);
+                k = TerrainShadeClass(bl - br, tl - bl, terrainHash, 1,
+                                      6, TERRAIN_SHADE_SHIFT + 1, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
                 g_Mesh.faces[facecounter++] = face;
             }
         }
+
+    free(terrain);
 
     // printf("Preparing Lighting pass...\n");
     // light.x = int2fix(-120);
@@ -239,8 +460,10 @@ void GenerateTerrain()
     //     g_Mesh.faces[i].flags = ; //  min(max(0, (int)(fix2float(DotProduct(&g_Mesh.faces[i].normal, &light)) * 16.f)),15);
     // }
     // printf("Done.\n");
+    return 0;
 }
 
+/** Release the global mesh's vertex, face, and transformed-vertex arrays. */
 void DeAllocateTerrain(void)
 {
     cvector_free(g_Mesh.verts);
@@ -248,6 +471,10 @@ void DeAllocateTerrain(void)
     cvector_free(g_Mesh.verts_transformed);
 }
 
+/** Interpolate the triangle under a position and add standing clearance.
+ * @param eyePos World position used for its X and Z coordinates.
+ * @return Camera height in 16.16 fixed point.
+ */
 fix GetHeight(V3D *eyePos)
 {
     fix A, B, C;
@@ -281,8 +508,8 @@ fix GetHeight(V3D *eyePos)
         {
             // Top Left Triangle
             A = g_Mesh.verts[IX(mapX, mapZ)].y;
-            B = fixmultINTL(B, localX);
-            C = fixmultINTL(C, localZ);
+            B = fixmult(B, localX);
+            C = fixmult(C, localZ);
         }
         else
         {
@@ -291,11 +518,11 @@ fix GetHeight(V3D *eyePos)
             localX = 65536 - localX;
             localZ = 65536 - localZ;
             A = g_Mesh.verts[IX(mapX + 1, mapZ + 1)].y;
-            B = fixmultINTL(B, localZ);
-            C = fixmultINTL(C, localX);
+            B = fixmult(B, localZ);
+            C = fixmult(C, localX);
         }
 
-        A = fixmultINTL(A, (65536 - localX - localZ));
+        A = fixmult(A, (65536 - localX - localZ));
     }
     else // Top Right / Bottom Left
     {
@@ -313,8 +540,8 @@ fix GetHeight(V3D *eyePos)
             // Top Right Triangle
             localX = 65536 - localX;
             A = g_Mesh.verts[IX(mapX + 1, mapZ)].y;
-            B = fixmultINTL(B, localX);
-            C = fixmultINTL(C, localZ);
+            B = fixmult(B, localX);
+            C = fixmult(C, localZ);
         }
         else
         {
@@ -322,12 +549,12 @@ fix GetHeight(V3D *eyePos)
             // Flip the local coords
             localZ = 65536 - localZ;
             A = g_Mesh.verts[IX(mapX, mapZ + 1)].y;
-            B = fixmultINTL(B, localZ);
-            C = fixmultINTL(C, localX);
+            B = fixmult(B, localZ);
+            C = fixmult(C, localX);
         }
 
-        A = fixmultINTL(A, (65536 - localX - localZ));
+        A = fixmult(A, (65536 - localX - localZ));
     }
 
-    return A + B + C + 262144;
+    return A + B + C + CELL_QUARTER_FIX;
 }

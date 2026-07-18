@@ -10,12 +10,31 @@
 #include "render.h"
 
 // ASM Routines
+/** Select the configured graphics mode and disable the text cursor. */
 extern void VDUSetup(void);
+/** Publish the current draw-buffer address to the assembly rasterizer.
+ * @param screenStart Start address returned by OS_ReadVduVariables.
+ * @param screenMax End/size value retained for interface compatibility.
+ */
 extern void UpdateMemAddress(int screenStart, int screenMax);
+/** Reserve enough RISC OS screen memory for double buffering. */
 extern void ReserveScreenBanks(void);
+/** Make the draw bank visible and select the other bank for drawing. */
 extern void SwitchScreenBank(void);
+/** Fill all or part of the current draw bank.
+ * @param color Packed pixel pattern written to the screen.
+ * @param fullclear Non-zero to clear the full screen; zero for the partial area.
+ */
 extern void ClearScreen(int color, int fullclear);
+/** Poll one RISC OS internal key code.
+ * @param keyCode Internal key number.
+ * @return Non-zero while the key is pressed.
+ */
 extern int KeyPress(int keyCode);
+/** Rasterize one projected triangle using the fog/colour lookup.
+ * @param triList Address of three consecutive projected vertices.
+ * @param color Packed base-colour and fog-table offset.
+ */
 extern void FillEdgeLists(int triList, int color);
 
 // SWI access
@@ -29,6 +48,11 @@ extern unsigned int EdgeList;
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
+/** Initialize Snowscape, run the interactive terrain view, and release resources.
+ * @param argc Process argument count; currently unused.
+ * @param argv Process argument vector; currently unused.
+ * @return Zero after a normal exit; non-zero when required assets cannot load.
+ */
 int main(int argc, char *argv[])
 {
     int i, swi_data[10], isRunning = 1;
@@ -38,6 +62,8 @@ int main(int argc, char *argv[])
     MAT43 mat;
     int mouseX, mouseY;
     unsigned char block[9];
+
+    gBaseDirectoryPath = getenv("Game$Dir");
 
     SetupMathsGlobals(1);
     for (i = 0; i < 1024; ++i)
@@ -51,9 +77,12 @@ int main(int argc, char *argv[])
 
     SetupPaletteLookup(1);
     SetupRender();
-    GenerateTerrain();
+    if (GenerateTerrain(gBaseDirectoryPath) != 0)
+    {
+        printf("ERROR: Failed to load terrain.\n");
+        return 1;
+    }
 
-    gBaseDirectoryPath = getenv("Game$Dir");
     if (LoadFogLookup() != 0)
     {
         printf("ERROR: Failed to load fog lookup table.\n");
@@ -91,9 +120,9 @@ int main(int argc, char *argv[])
         ClearScreen(0, 1);                          // Clear the new draw buffer
     }
 
-    eyePos.x = float2fix((MAPW << TILESHIFT) + (.5f)) >> 1;
+    eyePos.x = (MAPW * CELL_SIZE_FIX) >> 1;
+    eyePos.z = (MAPW * CELL_SIZE_FIX) >> 1;
     eyePos.y = GetHeight(&eyePos);
-    eyePos.z = float2fix((MAPW << TILESHIFT) + (.5f)) >> 1;
 
 #ifdef TIMING_LOG
     gTimerLog.biggestVertex = 0;
@@ -145,15 +174,17 @@ int main(int argc, char *argv[])
             if (rout.r[2] & 4) // Left mouse button - Walk forward
             {
                 // --angle;
-                eyePos.x += (fixcos(heading)) << 1;
-                eyePos.z -= (fixsin(heading)) << 1;
+                /* One eighth of a terrain cell per frame. */
+                eyePos.x += fixcos(heading) >> 2;
+                eyePos.z -= fixsin(heading) >> 2;
                 eyePos.y = GetHeight(&eyePos);
             }
             if (rout.r[2] & 1) // Right mouse button - Walk backward
             {
                 // ++angle;
-                eyePos.x -= (fixcos(heading));
-                eyePos.z += (fixsin(heading));
+                /* One sixteenth of a terrain cell per frame. */
+                eyePos.x -= fixcos(heading) >> 3;
+                eyePos.z += fixsin(heading) >> 3;
                 eyePos.y = GetHeight(&eyePos);
             }
 

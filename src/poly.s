@@ -17,8 +17,9 @@
         .global ScreenMax
         .global ScreenPartial
 
-// ====== RESERVE SCREEN BANKS =====
-// Set the display to Mode 13 and disable the screen cursor.
+// VDUSetup
+// Purpose: Select the configured graphics mode and disable the text cursor.
+// Inputs: None. Returns: None.
 
         .global  VDUSetup
 VDUSetup:
@@ -39,14 +40,18 @@ VDUSetup:
         SWI OS_RemoveCursors
         MOVS pc,lr
 
-        .global  UpdateMemAddress // (R1: screenStart, R2: screenMax)
+// UpdateMemAddress
+// Purpose: Publish the active draw-buffer start address to the rasterizer.
+// Inputs: r0 = screenStart, r1 = screenMax (reserved). Returns: None.
+        .global  UpdateMemAddress
 UpdateMemAddress:
         STR a1,ScreenStart
         //STR a2,ScreenMax
         MOVS pc,lr
 
-// ====== RESERVE SCREEN BANKS =====
-// Reserve 2 banks of screen memory
+// ReserveScreenBanks
+// Purpose: Resize the RISC OS screen dynamic area for two frame buffers.
+// Inputs: None. Returns: None.
 
         .global  ReserveScreenBanks
 ReserveScreenBanks:
@@ -66,8 +71,9 @@ ReserveScreenBanks:
         SWI OS_ChangeDynamicArea
 //        MOV r0,r1 ; Return the amount the area has changed (in bytes)
         MOVS pc,lr
-// ====== SWITCH SCREEN BANK =====
-// Toggles the current screen bank for drawing.
+// SwitchScreenBank
+// Purpose: Display the completed bank and select the other bank for drawing.
+// Inputs: None. Returns: None.
 
         .global  SwitchScreenBank
 SwitchScreenBank:
@@ -89,10 +95,11 @@ SwitchScreenBank:
 
         MOV pc,lr
 
-// ====== CLEAR SCREEN =====
-// Clears the current screen buffer 40 bytes at a time.
+// ClearScreen
+// Purpose: Fill the full or partial current draw buffer with a pixel pattern.
+// Inputs: r0 = packed colour, r1 = non-zero for full clear. Returns: None.
 
-        .global ClearScreen // ClearScreen(int color);
+        .global ClearScreen
 ClearScreen:
         STMFD sp!,{r4-r11}
         MOV r3, r0
@@ -163,7 +170,10 @@ v2_Y               .req r10  // V2 Y
 v3_X               .req r11  // V3 X
 v3_Y               .req r12  // V3 Y
 
-        .global FillEdgeLists // FillEdgeList(int triList, int color);
+// FillEdgeLists
+// Purpose: Clip, edge-walk, fog, and rasterize one projected triangle.
+// Inputs: r0 = V3D[3] address, r1 = packed colour/fog selector. Returns: None.
+        .global FillEdgeLists
 FillEdgeLists:
         STMFD sp!,{r1,r4-r12,r14} // Store the current registers
 
@@ -784,7 +794,10 @@ ScreenPartial:
 
 ALIGN:
 
-        .global KeyPress // KeyPress(int keycode);
+// KeyPress
+// Purpose: Poll the RISC OS keyboard state for one internal key number.
+// Inputs: r0 = key code. Returns: r0 = non-zero while pressed.
+        .global KeyPress
 KeyPress:
         EOR r1,r0,#255
         MOV r0,#129
@@ -793,6 +806,9 @@ KeyPress:
         MOV r0,r1 // r0 contains either 0xFF or 0x00
         MOV pc,lr
 
+// GenericDivide
+// Purpose: Divide a signed integer dividend by a non-zero integer divisor.
+// Inputs: r0 = dividend, r1 = divisor. Returns: r0 = quotient. Clobbers r4-r6.
         // EXPORT GenericDivide
 GenericDivide:
         // Enter with dividend in R0, divisor in R1.
@@ -822,11 +838,14 @@ LGenericDivide__local_10_3:
 
         MOV pc,lr
 
-        .global ProjectVertex // ProjectVertex(int vertexPtr);
+// ProjectVertex
+// Purpose: Perspective-project a camera-space V3D into screen coordinates.
+// Inputs: r0 = writable V3D address. Returns: projected V3D written in place.
+        .global ProjectVertex
 ProjectVertex:
         LDMFD r0!,{r1-r3}  // Load X, Y, Z from the vertex
         MOVS r3,r3,ASR#8   // Divide Z by 256
-        ADDS r3,r3,#64     // Push forward on the Z plane a little
+        ADDS r3,r3,#8      // 0.03125-unit Z offset for the 2-unit terrain scale
         BLE NoDivide
 
         STMFD sp!,{r4-r6}  // Save some registers
@@ -887,5 +906,3 @@ NoDivide:
 
         STMFD r0!,{r1-r3}  // Store X, Y, Z back to the vertex
         MOV pc,lr
-
-

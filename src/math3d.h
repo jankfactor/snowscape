@@ -129,25 +129,110 @@ typedef struct MAT44
     fix m41, m42, m43, m44;
 } MAT44;
 
+/** Allocate or release the shared sine and reciprocal lookup tables.
+ * @param isAllocating Non-zero to allocate; zero to release.
+ */
 void SetupMathsGlobals(int isAllocating);
 
+/** Reset an affine transform to identity.
+ * @param mat Matrix to overwrite.
+ */
 void SetIdentity(MAT43 *mat);
+/** Apply independent 16.16 scale factors to a transform's principal axes.
+ * @param mat Matrix to modify.
+ * @param sx X scale.
+ * @param sy Y scale.
+ * @param sz Z scale.
+ */
 void SetScale(MAT43 *mat, fix sx, fix sy, fix sz);
+/** Apply one 16.16 scale factor to every axis.
+ * @param mat Matrix to modify.
+ * @param s Uniform scale.
+ */
 void SetScaleUniversal(MAT43 *mat, fix s);
+/** Compose two affine transforms.
+ * @param dest Receives the product and may alias an input.
+ * @param a Left transform.
+ * @param b Right transform.
+ */
 void MultMatMat(MAT43 *dest, MAT43 *a, MAT43 *b);
+/** Transform a 3D position by an affine matrix.
+ * @param v Source position.
+ * @param dest Receives the result.
+ * @param mat Transform to apply.
+ */
 void MultV3DMat(V3D *v, V3D *dest, MAT43 *mat);
+/** Transform a homogeneous vector by a 4x4 matrix.
+ * @param v Source vector.
+ * @param dest Receives the result.
+ * @param mat Transform to apply.
+ */
 void MultV4DMat(V4D *v, V4D *dest, MAT44 *mat);
+/** Build an X-axis rotation matrix.
+ * @param mat Matrix to overwrite.
+ * @param angle Angle where 1024 units equal one turn.
+ */
 void RotateX(MAT43 *mat, int angle);
+/** Build a Y-axis rotation matrix.
+ * @param mat Matrix to overwrite.
+ * @param angle Angle where 1024 units equal one turn.
+ */
 void RotateY(MAT43 *mat, int angle);
+/** Build a rotation matrix around a normalized axis.
+ * @param mat Matrix to overwrite.
+ * @param axis Rotation axis.
+ * @param angle Sine-table angle.
+ */
 void RotateAxis(MAT43 *mat, V3D *axis, int angle);
+/** Build a matrix from Euler angles.
+ * @param mat Matrix to overwrite.
+ * @param heading Heading angle.
+ * @param pitch Pitch angle.
+ * @param bank Bank angle.
+ */
 void EulerToMat(MAT43 *mat, int heading, int pitch, int bank);
+/** Calculate an unnormalized triangle normal.
+ * @param a First vertex.
+ * @param b Second vertex.
+ * @param c Third vertex.
+ * @param n Receives the normal.
+ */
 void Normal(V3D *a, V3D *b, V3D *c, V3D *n);
+/** Normalize a non-zero vector in place.
+ * @param v Vector to normalize.
+ */
 void Normalize(V3D *v);
+/** Calculate a fixed-point dot product.
+ * @param v1 First vector.
+ * @param v2 Second vector.
+ * @return Dot product in 16.16 fixed point.
+ */
 fix DotProduct(const V3D *v1, const V3D *v2);
+/** Subtract b from a.
+ * @param a Minuend.
+ * @param b Subtrahend.
+ * @return Resulting vector.
+ */
 V3D SubV3D(const V3D *a, const V3D *b);
+/** Calculate a fixed-point cross product.
+ * @param a First vector.
+ * @param b Second vector.
+ * @return Vector perpendicular to both inputs.
+ */
 V3D CrossProductV3D(const V3D *a, const V3D *b);
+/** Build a world-to-view matrix.
+ * @param eyePos Camera position.
+ * @param forward Camera direction.
+ * @param mat Receives the matrix.
+ */
 void LookAt(const V3D *eyePos, const V3D *forward, MAT43 *mat);
+/** Build a perspective projection matrix.
+ * @param mat Matrix to overwrite.
+ * @param fov Vertical field of view in radians.
+ * @param aspect Aspect multiplier.
+ * @param znear Near distance.
+ * @param zfar Far distance.
+ */
 void PerspectiveProjection(MAT44 *mat, float fov, float aspect, float znear, float zfar);
 
 #endif // MATH3D_H
-

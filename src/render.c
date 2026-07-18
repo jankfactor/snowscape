@@ -5,9 +5,23 @@
 #include "mesh.h"
 #include "palette.h"
 
+/** Sort projected vertices for the assembly triangle rasterizer.
+ * @param triList Address of the projected vertex list.
+ */
 extern void SortVertices(int triList);
+/** Draw a prepared projected triangle.
+ * @param triList Address of the projected vertex list.
+ * @param color Packed colour/fog-table selector.
+ */
 extern void DrawTriangle(int triList, int color);
+/** Build edge spans and fill a projected triangle.
+ * @param triList Address of three consecutive projected vertices.
+ * @param color Packed colour/fog-table selector.
+ */
 extern void FillEdgeLists(int triList, int color);
+/** Project one transformed vertex in place.
+ * @param vertexPtr Address of the V3D vertex.
+ */
 extern void ProjectVertex(int vertexPtr);
 
 TRI *g_RenderQueue[MAXDEPTH];
@@ -26,6 +40,9 @@ int clippedNearTrisIndex = 0;
 #ifdef TIMING_LOG
 TimerLog gTimerLog;
 
+/** Stop and restart TimerMod and return the elapsed tick count.
+ * @return Elapsed TimerMod ticks.
+ */
 int GetRenderDelta(void)
 {
     _kernel_oserror *err;
@@ -40,6 +57,7 @@ int GetRenderDelta(void)
 }
 #endif // TIMING_LOG
 
+/** Empty every painter's-algorithm depth bucket. */
 void SetupRender(void)
 {
     memset(g_RenderQueue, 0, MAXDEPTH * sizeof(TRI *));
@@ -63,6 +81,9 @@ void SetupRender(void)
         }                                                         \
     } while (0);
 
+/** Clip a convex polygon against the camera-space near plane at Z zero.
+ * @param p Polygon modified in place; its vertex count may change.
+ */
 void ClipPolyonListToNearPlane(POLYGON *p)
 {
     static POLYGON inside;
@@ -99,6 +120,9 @@ void ClipPolyonListToNearPlane(POLYGON *p)
     *p = inside;
 }
 
+/** Frustum-test a transformed triangle and enqueue it by depth.
+ * @param tri Source mesh triangle whose transformed vertices are already valid.
+ */
 void RenderTriangle(TRI *tri)
 {
     int i, j, k;
@@ -134,7 +158,7 @@ void RenderTriangle(TRI *tri)
 
     // Turn the average depth into an index that fits into our render queue range
     k += (j + k);
-    k >>= 18;
+    k >>= (18 - WORLD_SCALE_REDUCTION);
     k += 4;
 
     // Triangles that cross the near plane need to be clipped
@@ -153,6 +177,11 @@ void RenderTriangle(TRI *tri)
     }
 }
 
+/** Render the camera-local terrain patch through the complete software pipeline.
+ * @param mv World-to-view transform.
+ * @param eyePos Camera position, which may be recentered at a map boundary.
+ * @param yaw Camera heading in sine-table units.
+ */
 void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
 {
     int i, j, k, x, z, mx, mz;
@@ -168,8 +197,8 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     clippedNearTrisIndex = clippedNearVertIndex = 0;
 
     // Get the fixed normalized location
-    mx = eyePos->x >> 20;
-    mz = eyePos->z >> 20;
+    mx = eyePos->x >> CELL_TO_WORLD_SHIFT;
+    mz = eyePos->z >> CELL_TO_WORLD_SHIFT;
 
     // mx += (fixcos(yaw) >> 13);
     // mz -= (fixsin(yaw) >> 13);
@@ -182,8 +211,8 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     // to the center of the map.
     if (mx <= SCANRANGE || mx >= MAPW - SCANRANGE || mz <= SCANRANGE || mz >= MAPW - SCANRANGE)
     {
-        eyePos->x = int2fix(MAPW << TILESHIFT) / 2;
-        eyePos->z = int2fix(MAPW << TILESHIFT) / 2;
+        eyePos->x = (MAPW * CELL_SIZE_FIX) >> 1;
+        eyePos->z = (MAPW * CELL_SIZE_FIX) >> 1;
     }
 
 #ifdef TIMING_LOG
@@ -311,18 +340,18 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
 
 #ifdef PAL_256
 #ifdef A5000
-                j >>= 18;
+                j >>= (18 - WORLD_SCALE_REDUCTION);
                 j = max(0, min(j - 16, 63));
 #else
-                j >>= 17;
+                j >>= (17 - WORLD_SCALE_REDUCTION);
                 j = max(0, min(j - 16, 63));
 #endif // A5000
 #else  // 16 COLOR
 #ifdef A5000
-                j >>= 20;
+                j >>= (20 - WORLD_SCALE_REDUCTION);
                 j = max(0, j - 4);
 #else
-                j >>= 19;
+                j >>= (19 - WORLD_SCALE_REDUCTION);
                 j = max(0, j - 6);
 #endif // A5000
 #endif // PAL_256

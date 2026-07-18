@@ -7,8 +7,18 @@
 
 #include "math3d.h"
 
+/** Clear every depth bucket before rendering begins. */
 void SetupRender(void);
+/** Transform, clip, sort, project, and rasterize the visible terrain.
+ * @param mv World-to-view transform.
+ * @param eyePos Camera position, which may be recentered at a map boundary.
+ * @param yaw Camera heading in sine-table units.
+ */
 void RenderModel(MAT43 *mv, V3D *eyePos, int yaw);
+/** Project a transformed vertex and report clipping state.
+ * @param v Vertex to project.
+ * @param clipflags Receives implementation-defined clipping flags.
+ */
 void MultV3DProj(V3D *v, int *clipflags);
 
 // How many tiles around the look center. i.e., double this for the max tiles ahead.
@@ -45,6 +55,9 @@ extern TimerLog gTimerLog;
 #define SWI_Timer_Stop 0x000490C1
 #define SWI_Timer_Value 0x000490C2
 
+/** Stop and restart TimerMod around a render stage.
+ * @return Elapsed TimerMod ticks.
+ */
 int GetRenderDelta(void);
 
 #endif // TIMING_LOG

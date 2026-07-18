@@ -10,6 +10,9 @@ fix *g_oneOver;   // Reciprocal table (for max screen height of 256 in Mode 13)
 extern unsigned int OneOver; // Address of the above table for ASM access
 fix *g_SineTable; // SIN table. Offset used for COS.
 
+/** Allocate or release the renderer's shared trigonometric lookup storage.
+ * @param isAllocating Non-zero to allocate; zero to release.
+ */
 void SetupMathsGlobals(int isAllocating)
 {
     if (isAllocating)
@@ -29,6 +32,9 @@ void SetupMathsGlobals(int isAllocating)
     }
 }
 
+/** Reset an affine transform to identity.
+ * @param mat Matrix to overwrite.
+ */
 void SetIdentity(MAT43 *mat)
 {
     mat->m11 = 65536;
@@ -45,6 +51,12 @@ void SetIdentity(MAT43 *mat)
     mat->tz = 0;
 }
 
+/** Scale the three principal matrix entries.
+ * @param mat Matrix to modify.
+ * @param sx X scale in 16.16 fixed point.
+ * @param sy Y scale in 16.16 fixed point.
+ * @param sz Z scale in 16.16 fixed point.
+ */
 void SetScale(MAT43 *mat, fix sx, fix sy, fix sz)
 {
     mat->m11 = fixmult(mat->m11, sx);
@@ -52,11 +64,21 @@ void SetScale(MAT43 *mat, fix sx, fix sy, fix sz)
     mat->m33 = fixmult(mat->m33, sz);
 }
 
+/** Apply uniform scaling to a transform.
+ * @param mat Matrix to modify.
+ * @param s Uniform scale in 16.16 fixed point.
+ */
 void SetScaleUniversal(MAT43 *mat, fix s)
 {
     SetScale(mat, s, s, s);
 }
 
+/** Convert heading, pitch, and bank angles into a rotation matrix.
+ * @param mat Matrix to overwrite.
+ * @param heading Heading in sine-table units.
+ * @param pitch Pitch in sine-table units.
+ * @param bank Bank in sine-table units.
+ */
 void EulerToMat(MAT43 *mat, int heading, int pitch, int bank)
 {
     fix sh, ch, sp, cp, sb, cb;
@@ -82,6 +104,11 @@ void EulerToMat(MAT43 *mat, int heading, int pitch, int bank)
     mat->tx = mat->ty = mat->tz = 0;
 }
 
+/** Build a rotation around an arbitrary normalized axis.
+ * @param mat Matrix to overwrite.
+ * @param axis Rotation axis in 16.16 fixed point.
+ * @param angle Rotation in sine-table units.
+ */
 void RotateAxis(MAT43 *mat, V3D *axis, int angle)
 {
     fix s, c, a, ax, ay, az;
@@ -105,6 +132,10 @@ void RotateAxis(MAT43 *mat, V3D *axis, int angle)
     mat->tx = mat->ty = mat->tz = 0;
 }
 
+/** Build an X-axis rotation matrix.
+ * @param mat Matrix to overwrite.
+ * @param angle Rotation in sine-table units.
+ */
 void RotateX(MAT43 *mat, int angle)
 {
     fix s, c;
@@ -123,6 +154,10 @@ void RotateX(MAT43 *mat, int angle)
     mat->tx = mat->ty = mat->tz = 0;
 }
 
+/** Build a Y-axis rotation matrix.
+ * @param mat Matrix to overwrite.
+ * @param angle Rotation in sine-table units.
+ */
 void RotateY(MAT43 *mat, int angle)
 {
     fix s, c;
@@ -141,6 +176,12 @@ void RotateY(MAT43 *mat, int angle)
     mat->tx = mat->ty = mat->tz = 0;
 }
 
+/** Calculate an unnormalized normal for a triangle.
+ * @param a First vertex.
+ * @param b Second vertex.
+ * @param c Third vertex.
+ * @param n Receives the normal.
+ */
 void Normal(V3D *a, V3D *b, V3D *c, V3D *n)
 {
     V3D v1, v2;
@@ -156,6 +197,9 @@ void Normal(V3D *a, V3D *b, V3D *c, V3D *n)
     n->z = fixmult(v1.x, v2.y) - fixmult(v1.y, v2.x);
 }
 
+/** Normalize a non-zero vector in place.
+ * @param v Vector to normalize.
+ */
 void Normalize(V3D *v)
 {
     double len, x, y, z;
@@ -169,11 +213,21 @@ void Normalize(V3D *v)
     v->z = float2fix((float)(z / len));
 }
 
+/** Calculate the fixed-point dot product of two vectors.
+ * @param v1 First vector.
+ * @param v2 Second vector.
+ * @return Dot product in 16.16 fixed point.
+ */
 fix DotProduct(const V3D *v1, const V3D *v2)
 {
     return fixmult(v1->x, v2->x) + fixmult(v1->y, v2->y) + fixmult(v1->z, v2->z);
 }
 
+/** Compose two affine transforms.
+ * @param dest Receives the result and may alias an input.
+ * @param a Left-hand transform.
+ * @param b Right-hand transform.
+ */
 void MultMatMat(MAT43 *dest, MAT43 *a, MAT43 *b)
 {
     MAT43 tmp;
@@ -197,6 +251,11 @@ void MultMatMat(MAT43 *dest, MAT43 *a, MAT43 *b)
     *dest = tmp;
 }
 
+/** Transform a 3D position by an affine matrix.
+ * @param v Source position.
+ * @param dest Receives the transformed position.
+ * @param mat Transform to apply.
+ */
 void MultV3DMat(V3D *v, V3D *dest, MAT43 *mat)
 {
     dest->x = fixmult(v->x, mat->m11) + fixmult(v->y, mat->m12) + fixmult(v->z, mat->m13) + mat->tx;
@@ -204,6 +263,11 @@ void MultV3DMat(V3D *v, V3D *dest, MAT43 *mat)
     dest->z = fixmult(v->x, mat->m31) + fixmult(v->y, mat->m32) + fixmult(v->z, mat->m33) + mat->tz;
 }
 
+/** Transform a homogeneous vector by a 4x4 matrix.
+ * @param v Source vector.
+ * @param dest Receives the transformed vector.
+ * @param mat Transform to apply.
+ */
 void MultV4DMat(V4D *v, V4D *dest, MAT44 *mat)
 {
     dest->x = fixmult(v->x, mat->m11) + fixmult(v->y, mat->m12) + fixmult(v->z, mat->m13) + fixmult(v->w, mat->m14);
@@ -212,6 +276,11 @@ void MultV4DMat(V4D *v, V4D *dest, MAT44 *mat)
     dest->w = fixmult(v->x, mat->m41) + fixmult(v->y, mat->m42) + fixmult(v->z, mat->m43) + fixmult(v->w, mat->m44);
 }
 
+/** Subtract b from a.
+ * @param a Minuend.
+ * @param b Subtrahend.
+ * @return Resulting vector.
+ */
 V3D SubV3D(const V3D *a, const V3D *b)
 {
     V3D result;
@@ -221,6 +290,11 @@ V3D SubV3D(const V3D *a, const V3D *b)
     return result;
 }
 
+/** Calculate the fixed-point cross product of two vectors.
+ * @param a First vector.
+ * @param b Second vector.
+ * @return Vector perpendicular to both inputs.
+ */
 V3D CrossProductV3D(const V3D *a, const V3D *b)
 {
     V3D result;
@@ -230,6 +304,11 @@ V3D CrossProductV3D(const V3D *a, const V3D *b)
     return result;
 }
 
+/** Build a world-to-view transform from camera position and direction.
+ * @param eyePos Camera position.
+ * @param forward Camera forward direction.
+ * @param mat Receives the view matrix.
+ */
 void LookAt(const V3D *eyePos, const V3D *forward, MAT43 *mat)
 {
     // Calculate the forward vector (direction from eye to target)
@@ -262,6 +341,13 @@ void LookAt(const V3D *eyePos, const V3D *forward, MAT43 *mat)
     mat->m33 = forward->z;
 }
 
+/** Build a perspective projection matrix.
+ * @param mat Matrix to overwrite.
+ * @param fov Vertical field of view in radians.
+ * @param aspect Aspect multiplier.
+ * @param znear Near clipping distance.
+ * @param zfar Far clipping distance.
+ */
 void PerspectiveProjection(MAT44 *mat, float fov, float aspect, float znear, float zfar)
 {
     float yScale = 1.f / tanf(fov / 2.f);
