@@ -8,13 +8,17 @@
 #define _MAPW 127
 #define MAPSHIFT 7
 
-#define TILESHIFT 1 /* Midwinter's fully zoomed terrain cells are 2x2 units. */
+/* Midwinter cells are logically 2x2 units. Scale the complete world by eight
+   internally so the 16.16 transform and projection paths retain more precision. */
+#define MIDWINTER_TILESHIFT 1
+#define WORLD_SCALE_SHIFT 3
+#define TILESHIFT (MIDWINTER_TILESHIFT + WORLD_SCALE_SHIFT)
 #define CELL_TO_WORLD_SHIFT (16 + TILESHIFT)
 #define CELL_SIZE_FIX (1 << CELL_TO_WORLD_SHIFT)
 #define CELL_QUARTER_FIX (CELL_SIZE_FIX >> 2)
 #define CELL_THREE_QUARTER_FIX (CELL_QUARTER_FIX * 3)
 
-/* Quantities tuned for the old 16-unit cells need three fewer shift bits. */
+/* Renderer distance constants were originally tuned for 16-unit cells. */
 #define LEGACY_TILESHIFT 4
 #define WORLD_SCALE_REDUCTION (LEGACY_TILESHIFT - TILESHIFT)
 #define IX(x, z) (((x) & _MAPW) + (((z) & _MAPW) << (MAPSHIFT)))

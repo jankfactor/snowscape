@@ -845,7 +845,7 @@ LGenericDivide__local_10_3:
 ProjectVertex:
         LDMFD r0!,{r1-r3}  // Load X, Y, Z from the vertex
         MOVS r3,r3,ASR#8   // Divide Z by 256
-        ADDS r3,r3,#8      // 0.03125-unit Z offset for the 2-unit terrain scale
+        ADDS r3,r3,#64     // Same logical offset after the 8x internal world scale
         BLE NoDivide
 
         STMFD sp!,{r4-r6}  // Save some registers

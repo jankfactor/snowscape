@@ -1,9 +1,13 @@
 # Snowscape
 
 ### Description
-A small terrain engine for Acorn Archimedes inspired by the Midwinter series of games by Mike Singleton and Maelstrom. These games never came out on the Acorn  series of machines, so this was just a fun project to imagine what it might have looked like on the Archimedes utilizing it's slightly quirky 256-color palette. Written in C89 and ARM assembly. Utilizes the [C89 dynamic array](https://github.com/eteran/c-vector) by Evan Teran.
+A 3D landscape engine for Acorn Archimedes based on the [Midwinter](https://en.wikipedia.org/wiki/Midwinter_(video_game)) series of games by Mike Singleton and Maelstrom. These games were never released for Acorn machines, so Snowscape explores what an authentic Archimedes version might have looked and felt like while taking advantage of the machine's ARM processor and distinctive 256-colour palette. It is written in C89 and ARM assembly and uses the [C89 dynamic array](https://github.com/eteran/c-vector) by Evan Teran.
 
-I haven't looked fully at either the 68k or x86 DOS dissassembly for Midwinter, and aside from the articles in magazines of the midpoint displacement method for terrain generation, **assume this to have little or no connection to how Maelstrom originally implemented the engine in Midwinter**.
+The DOS version of *Midwinter* has now been fully reverse engineered elsewhere. Snowscape uses the resulting documentation to reproduce the original terrain generation, world behaviour, rendering decisions, palette character, fog, and overall experience as closely as practical. But this is not intended to be an instruction-for-instruction port of the original x86 code by any means. Where appropriate, routines and data flow are redesigned for ARM and RISC OS&mdash;including fixed-point maths, lookup tables, polygon rasterisation, screen banking, and machine-specific draw distances&mdash;to keep performance as high and predictable as possible on real Archimedes hardware. Fidelity describes the result; the implementation remains purpose-built for Acorn machines.
+
+As the Archimedes has a 'quirky' 256 color mode, I've implemented a 256 color version. However, there's also a Mode 9 16-color version which aims to look closer to the Atari ST and Amiga originals. Also there's an A5000 version with further draw distance.
+
+The original game used a big-endian ZBUFFER.BIN on PC (taken from the Amiga/ST version) with a starting grid of 50x50 points and a hash table for midpoint generation. A custom version of this has been created as to not ship copyrighted code, but if you legally own Midwinter on PC, you can rename that file ZBUFFER and replace the one in the assets folder to see the original Midwinter isle.
 
 As per the license this software is released **AS IS**. I don't have the time to look through pull requests, etc., but please feel free to fork the project and play with it as you will. :)
 

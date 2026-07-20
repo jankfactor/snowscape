@@ -6,14 +6,22 @@
 
 Mesh g_Mesh;
 
-#define SNOWLEVEL -81920
-#define SANDLEVEL -409600
+#define SNOWLEVEL ((7400 * 64) << WORLD_SCALE_SHIFT)
+#define SANDLEVEL 0
 #define ZBUFFER_SIZE 10000
 #define SEED_SIZE 50
 #define GENERATED_SIZE 100
 #define TERRAIN_MARGIN ((MAPW - GENERATED_SIZE) / 2)
-#define HEIGHT_TO_FIX 256
+#define HEIGHT_TO_FIX_SHIFT (8 + WORLD_SCALE_SHIFT)
+#define HEIGHT_TO_FIX (1 << HEIGHT_TO_FIX_SHIFT)
 #define TERRAIN_SHADE_SHIFT (16 - WORLD_SCALE_REDUCTION)
+
+/* Height is a signed 8.8 source word scaled by HEIGHT_TO_FIX. Multiplying the
+   source word by the full 16-bit barycentric weight preserves all available
+   interpolation precision and cannot overflow a signed 32-bit ARM register. */
+#define INTERPOLATE_HEIGHT(height, weight) \
+    ((((height) >> HEIGHT_TO_FIX_SHIFT) * (weight)) >> \
+     (16 - HEIGHT_TO_FIX_SHIFT))
 
 typedef struct HeightCell
 {
@@ -297,7 +305,8 @@ int GenerateTerrain(const char *baseDirectoryPath)
             g_Mesh.verts[IX(i, j)].z = j * CELL_SIZE_FIX;
             terrainX = clamp(i - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
             terrainZ = clamp(j - TERRAIN_MARGIN, 0, GENERATED_SIZE - 1);
-            /* Midwinter's signed 8.8 heights convert directly to 16.16. */
+            /* Preserve Midwinter's signed 8.8 height, then apply the uniform
+               internal world scale used by X and Z. */
             g_Mesh.verts[IX(i, j)].y = ((fix)SignedWord(
                 terrain[terrainZ * GENERATED_SIZE + terrainX].height)) *
                 HEIGHT_TO_FIX;
@@ -508,8 +517,8 @@ fix GetHeight(V3D *eyePos)
         {
             // Top Left Triangle
             A = g_Mesh.verts[IX(mapX, mapZ)].y;
-            B = fixmult(B, localX);
-            C = fixmult(C, localZ);
+            B = INTERPOLATE_HEIGHT(B, localX);
+            C = INTERPOLATE_HEIGHT(C, localZ);
         }
         else
         {
@@ -518,11 +527,11 @@ fix GetHeight(V3D *eyePos)
             localX = 65536 - localX;
             localZ = 65536 - localZ;
             A = g_Mesh.verts[IX(mapX + 1, mapZ + 1)].y;
-            B = fixmult(B, localZ);
-            C = fixmult(C, localX);
+            B = INTERPOLATE_HEIGHT(B, localZ);
+            C = INTERPOLATE_HEIGHT(C, localX);
         }
 
-        A = fixmult(A, (65536 - localX - localZ));
+        A = INTERPOLATE_HEIGHT(A, (65536 - localX - localZ));
     }
     else // Top Right / Bottom Left
     {
@@ -540,8 +549,8 @@ fix GetHeight(V3D *eyePos)
             // Top Right Triangle
             localX = 65536 - localX;
             A = g_Mesh.verts[IX(mapX + 1, mapZ)].y;
-            B = fixmult(B, localX);
-            C = fixmult(C, localZ);
+            B = INTERPOLATE_HEIGHT(B, localX);
+            C = INTERPOLATE_HEIGHT(C, localZ);
         }
         else
         {
@@ -549,12 +558,12 @@ fix GetHeight(V3D *eyePos)
             // Flip the local coords
             localZ = 65536 - localZ;
             A = g_Mesh.verts[IX(mapX, mapZ + 1)].y;
-            B = fixmult(B, localZ);
-            C = fixmult(C, localX);
+            B = INTERPOLATE_HEIGHT(B, localZ);
+            C = INTERPOLATE_HEIGHT(C, localX);
         }
 
-        A = fixmult(A, (65536 - localX - localZ));
+        A = INTERPOLATE_HEIGHT(A, (65536 - localX - localZ));
     }
 
-    return A + B + C + CELL_QUARTER_FIX;
+    return A + B + C + (CELL_QUARTER_FIX >> 1);
 }

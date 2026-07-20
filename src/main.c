@@ -174,17 +174,17 @@ int main(int argc, char *argv[])
             if (rout.r[2] & 4) // Left mouse button - Walk forward
             {
                 // --angle;
-                /* One eighth of a terrain cell per frame. */
-                eyePos.x += fixcos(heading) >> 2;
-                eyePos.z -= fixsin(heading) >> 2;
+                /* One sixteenth of a terrain cell per frame. */
+                eyePos.x += fixcos(heading);
+                eyePos.z -= fixsin(heading);
                 eyePos.y = GetHeight(&eyePos);
             }
             if (rout.r[2] & 1) // Right mouse button - Walk backward
             {
                 // ++angle;
-                /* One sixteenth of a terrain cell per frame. */
-                eyePos.x -= fixcos(heading) >> 3;
-                eyePos.z += fixsin(heading) >> 3;
+                /* One thirty-second of a terrain cell per frame. */
+                eyePos.x -= fixcos(heading) >> 1;
+                eyePos.z += fixsin(heading) >> 1;
                 eyePos.y = GetHeight(&eyePos);
             }
 
