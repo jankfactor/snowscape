@@ -116,11 +116,17 @@ void Save256(void)
     unsigned int i, j, h;
     char hex[200];
     FILE *file;
+    char buf[256];
+    char *ptr;
+    const char *filename = "colors_txt";
+
+    sprintf(&buf[0], "%s.%s", gBaseDirectoryPath, filename);
+    ptr = &buf[0];
 
     unsigned char originalFound[16] = {0, 0, 0, 0, 0, 0, 0, 0,
                                        0, 0, 0, 0, 0, 0, 0, 0};
 
-    file = fopen("colors_txt", "w");
+    file = fopen(ptr, "w");
     if (!file)
         return;
 

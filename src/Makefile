@@ -17,7 +17,7 @@ DEPDIR := $(OBJDIR)/.deps
 TARGETDIR := ./!$(PROJNAME)
 
 # Source files (.c or .s)
-SRCFILES = main.c math3d.c mesh.c palette.c render.c poly.s
+SRCFILES = main.c math3d.c terrain.c map.c mesh.c palette.c render.c poly.s
 
 # Libraries
 LIBS = -lm

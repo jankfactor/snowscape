@@ -3,6 +3,7 @@
 
 #include "math3d.h"
 #include "cvector.h"
+#include "terrain.h"
 
 #define MAPW 128
 #define _MAPW 127
@@ -32,11 +33,17 @@ typedef struct Mesh
 
 extern Mesh g_Mesh;
 
-/** Load, subdivide, shade, and triangulate the Midwinter terrain patch.
- * @param baseDirectoryPath RISC OS application path containing the assets.
+/** Subdivide, shade, and triangulate the selected Midwinter terrain patch.
+ * @param source Loaded pristine terrain seed.
+ * @param path Selected map zoom path; centered levels are appended as needed.
  * @return Zero on success; non-zero if terrain preparation fails.
  */
-int GenerateTerrain(const char *baseDirectoryPath);
+int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path);
+/** Place the camera over the map cursor selected for entry into 3D.
+ * @param path Completed zoom path and final-grid player coordinate.
+ * @param eyePos Destination camera position, including terrain clearance.
+ */
+void SetTerrainPlayerStart(const TerrainZoomPath *path, V3D *eyePos);
 /** Release all dynamically allocated terrain mesh arrays. */
 void DeAllocateTerrain(void);
 /** Interpolate the terrain surface beneath a world-space position.

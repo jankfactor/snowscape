@@ -6,6 +6,7 @@
 #include <swis.h>
 
 #include "mesh.h"
+#include "map.h"
 #include "palette.h"
 #include "render.h"
 
@@ -55,13 +56,16 @@ extern unsigned int EdgeList;
  */
 int main(int argc, char *argv[])
 {
-    int i, swi_data[10], isRunning = 1;
+    int i, swi_data[10], isRunning = 1, exitCode = 0;
+    int terrainGenerated = 0;
     int heading = 498, pitch = -53, angle = 0;
     V3D eyePos, direction;
     V3D verts[3];
     MAT43 mat;
     int mouseX, mouseY;
     unsigned char block[9];
+    TerrainSource terrainSource;
+    TerrainZoomPath terrainSelection;
 
     gBaseDirectoryPath = getenv("Game$Dir");
 
@@ -77,7 +81,7 @@ int main(int argc, char *argv[])
 
     SetupPaletteLookup(1);
     SetupRender();
-    if (GenerateTerrain(gBaseDirectoryPath) != 0)
+    if (TerrainLoad(&terrainSource, gBaseDirectoryPath) != 0)
     {
         printf("ERROR: Failed to load terrain.\n");
         return 1;
@@ -99,8 +103,10 @@ int main(int argc, char *argv[])
     VDUSetup();
     ReserveScreenBanks();
     SwitchScreenBank();
-    SetPalette();
-    // Save256(); // Uncomment to save the VIDC generated palette to a file
+#ifndef PAL_256
+    SetPalette(); // Set the sixteen configurable logical colours used by the renderer
+#endif // PAL_256
+    Save256(); // Uncomment to save the VIDC generated palette to a file
 
     // Obtain details about the current screen mode
     swi_data[0] = (int)148;         // screen base address
@@ -120,9 +126,43 @@ int main(int argc, char *argv[])
         ClearScreen(0, 1);                          // Clear the new draw buffer
     }
 
-    eyePos.x = (MAPW * CELL_SIZE_FIX) >> 1;
-    eyePos.z = (MAPW * CELL_SIZE_FIX) >> 1;
-    eyePos.y = GetHeight(&eyePos);
+    i = RunMapScreen(&terrainSource, &terrainSelection);
+    if (i != 0)
+    {
+        if (i < 0)
+        {
+            printf("ERROR: Failed to prepare terrain map.\n");
+            exitCode = 1;
+        }
+        goto exit_graphics;
+    }
+
+    if (GenerateTerrain(&terrainSource, &terrainSelection) != 0)
+    {
+        printf("ERROR: Failed to generate selected terrain.\n");
+        exitCode = 1;
+        goto exit_graphics;
+    }
+    terrainGenerated = 1;
+    {
+        int worldX, worldY;
+        TerrainPlayerWorldPosition(&terrainSelection, &worldX, &worldY);
+        printf("Loading player at world position %d, %d\n",
+               worldX, worldY);
+    }
+
+    /* Remove the map from both banks before entering the 3D view. */
+    for (i = 0; i < 2; ++i)
+    {
+        SwitchScreenBank();
+        rin.r[0] = (int)(&swi_data[0]);
+        rin.r[1] = (int)(&swi_data[3]);
+        err = _kernel_swi(OS_ReadVduVariables, &rin, &rout);
+        UpdateMemAddress(swi_data[3], swi_data[4]);
+        ClearScreen(0, 1);
+    }
+
+    SetTerrainPlayerStart(&terrainSelection, &eyePos);
 
 #ifdef TIMING_LOG
     gTimerLog.biggestVertex = 0;
@@ -201,7 +241,7 @@ int main(int argc, char *argv[])
             LookAt(&eyePos, &direction, &mat); // TODO - SLOWWWWWW - 2 cross products in here
 
 #ifdef PAL_256
-            ClearScreen(0xC6C6C6C6, 1); // Clear the new draw buffer
+            ClearScreen(0xCECECECE, 1); // Clear the new draw buffer
 #else
             ClearScreen(0xFFFFFFFF, 1); // Clear the new draw buffer
 #endif // PAL_256
@@ -230,6 +270,7 @@ int main(int argc, char *argv[])
         printf("ERROR: %s", err->errmess);
     }
 
+exit_graphics:
     // Return to text mode
     rin.r[0] = 22;
     err = _kernel_swi(OS_WriteC, &rin, &rout);
@@ -243,13 +284,17 @@ int main(int argc, char *argv[])
 
     // Free up memory that was allocated
     cvector_free(gEdgeList);
-    DeAllocateTerrain();
+    if (terrainGenerated)
+        DeAllocateTerrain();
     SetupMathsGlobals(0);
     SetupPaletteLookup(0);
-    printf("Heading: %d, Pitch: %d\n", heading, pitch);
-    printf("Eyepos: %d, %d, %d\n", eyePos.x, eyePos.y, eyePos.z);
+    if (terrainGenerated)
+    {
+        printf("Heading: %d, Pitch: %d\n", heading, pitch);
+        printf("Eyepos: %d, %d, %d\n", eyePos.x, eyePos.y, eyePos.z);
+    }
 
     // (void)getchar(); // Uncomment to pause here and read data output
 
-    return 0;
+    return exitCode;
 }

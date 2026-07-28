@@ -22,6 +22,9 @@ Thanks to the amazing [Archimedes Live!](https://archi.medes.live/) you can run 
 
 
 #### Controls
+MAP LEFT CLICK - Zoom in around the selected point\
+MAP RIGHT CLICK - Zoom out\
+MAP SPACE - Enter the 3D world at the cursor position\
 LEFT CLICK - Move forwards\
 RIGHT CLICK - Move backwards\
 MOUSE - Move view\

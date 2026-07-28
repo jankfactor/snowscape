@@ -51,7 +51,7 @@ LIBS := -lm
 LDFLAGS := -L$(GCCSDK_INSTALL_ENV)/lib -static
 
 # Source files (.c or .s)
-SRCFILES = main.c math3d.c mesh.c palette.c render.c poly.s
+SRCFILES = main.c math3d.c terrain.c map.c mesh.c palette.c render.c poly.s
 
 # Generate object and dependency file names
 OBJFILES = $(patsubst %.c,$(OBJDIR)/%.o,$(patsubst %.s,$(OBJDIR)/%.o,$(SRCFILES)))
