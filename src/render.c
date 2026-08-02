@@ -344,7 +344,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 j = max(0, min(j - 16, 63));
 #else
                 j >>= (17 - WORLD_SCALE_REDUCTION);
-                j = max(0, min(j - 16, 63));
+                j = max(0, min(j - 4, 63));
 #endif // A5000
 #else  // 16 COLOR
 #ifdef A5000

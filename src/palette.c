@@ -54,6 +54,30 @@ static unsigned int inputPalette[16] = {
 #endif // PAL_256
 };
 
+#ifndef PAL_256
+/* Map-only ramp based on the Atari ST relief screen.  The original land
+ * anchors occupy alternating steps; intervening blues make use of the
+ * Archimedes mode's otherwise spare logical colours. */
+static const unsigned int mapPalette[16] = {
+    0x000020, /* frame and background */
+    0x000060, /* sea */
+    0x101060,
+    0x202060,
+    0x303070,
+    0x404080,
+    0x505090,
+    0x6060a0,
+    0x7070b0,
+    0x8080c0,
+    0x9090d0,
+    0xa0a0e0,
+    0xb0b0e0,
+    0xc0c0e0,
+    0xd0d0f0,
+    0xe0e0ff
+};
+#endif
+
 /** Allocate or release storage shared with the assembly fog rasterizer.
  * @param allocating Non-zero to allocate; zero to release.
  */
@@ -78,12 +102,8 @@ void SetupPaletteLookup(int allocating)
     }
 }
 
-/** Program the sixteen configurable logical colours used by the renderer.
- *
- * The Archimedes 256-colour palette exposes sixteen mostly configurable
- * colours; VIDC derives the remaining entries as a house mixture.
- */
-void SetPalette(void)
+/** Program sixteen RGB values into the active mode's logical colours. */
+static void ProgramPalette(const unsigned int *colors)
 {
     typedef struct PalEntry
     {
@@ -101,14 +121,32 @@ void SetPalette(void)
 
     for (i = 0; i < 16; ++i)
     {
-        pal.R = (inputPalette[i] >> 16) & 0xFF;
-        pal.G = (inputPalette[i] >> 8) & 0xFF;
-        pal.B = (inputPalette[i]) & 0xFF;
+        pal.R = (colors[i] >> 16) & 0xFF;
+        pal.G = (colors[i] >> 8) & 0xFF;
+        pal.B = colors[i] & 0xFF;
         pal.INDEX = i;
 
         err = _kernel_swi(OS_WriteN, &rin, &rout);
     }
 }
+
+/** Program the sixteen configurable logical colours used by the renderer.
+ *
+ * The Archimedes 256-colour palette exposes sixteen mostly configurable
+ * colours; VIDC derives the remaining entries as a house mixture.
+ */
+void SetPalette(void)
+{
+    ProgramPalette(inputPalette);
+}
+
+#ifndef PAL_256
+/** Install the temporary blue relief-map palette. */
+void SetMapPalette(void)
+{
+    ProgramPalette(mapPalette);
+}
+#endif
 
 /** Dump the current hardware palette and logical-colour match counts. */
 void Save256(void)

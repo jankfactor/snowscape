@@ -5,16 +5,27 @@
 #include <swis.h>
 
 #include "map.h"
+#include "palette.h"
 #include "render.h"
 
 #define MAP_LEFT 0
 #define MAP_TOP 0
-#define MAP_SEA_COLOR 203
 #define MAP_FRAME_WIDTH 3
+
+#ifdef PAL_256
+#define MAP_SEA_COLOR 203
+#define MAP_HIGHLIGHT_COLOR 255
+#define SCREEN_STRIDE SCREEN_W
+#else
+#define MAP_SEA_COLOR 1
+#define MAP_HIGHLIGHT_COLOR 15
+#define SCREEN_STRIDE (SCREEN_W / 2)
+#endif
 
 extern void UpdateMemAddress(int screenStart, int screenMax);
 extern int KeyPress(int keyCode);
 
+#ifdef PAL_256
 /* Mode 13 indices for its sixteen exact grey ramp entries. */
 static const unsigned char reliefColors[16] = {
     0, 1, 2, 3, 44, 45, 46, 47,
@@ -25,6 +36,17 @@ static const unsigned char reliefColors[16] = {
 static const unsigned char mapFrameColors[MAP_FRAME_WIDTH] = {
     0, 208, 255
 };
+#else
+/* The map palette reserves 0 for its frame and 1 for deep-blue sea. */
+static const unsigned char reliefColors[14] = {
+    2, 3, 4, 5, 6, 7, 8,
+    9, 10, 11, 12, 13, 14, 15
+};
+
+static const unsigned char mapFrameColors[MAP_FRAME_WIDTH] = {
+    0, 11, 15
+};
+#endif
 
 /** Clamp an integer to an inclusive range.
  * @param value Value to constrain.
@@ -37,6 +59,22 @@ static int ClampInt(int value, int minimum, int maximum)
     if (value < minimum) return minimum;
     if (value > maximum) return maximum;
     return value;
+}
+
+/** Write one logical pixel in either the byte-packed or nibble-packed mode. */
+static void WriteScreenPixel(unsigned char *screen, int x, int y,
+                             unsigned char color)
+{
+#ifdef PAL_256
+    screen[y * SCREEN_STRIDE + x] = color;
+#else
+    unsigned char *packed = screen + y * SCREEN_STRIDE + (x >> 1);
+
+    if (x & 1)
+        *packed = (unsigned char)((*packed & 0x0f) | (color << 4));
+    else
+        *packed = (unsigned char)((*packed & 0xf0) | (color & 0x0f));
+#endif
 }
 
 /** Test whether a screen position lies anywhere in the 200x200 map pane. */
@@ -77,13 +115,13 @@ static unsigned char MapFrameColor(int x, int y)
 }
 
 /** Select the relief-map colour for one land sample and its eastern neighbor.
- * This follows Midwinter's VGA relief viewer: east-facing height change is
+ * This follows Midwinter's relief viewer: east-facing height change is
  * centered on a 64-shade ramp and becomes more sensitive at each zoom level.
- * Mode 13 provides sixteen exact greys, so the VGA ramp is reduced to those.
+ * The ramp is reduced to the shades available in the active screen mode.
  * @param rawHeight Midwinter signed height stored in an unsigned word.
  * @param rawEastHeight Height of the sample immediately to the east.
  * @param zoomLevel Current map zoom level from zero through four.
- * @return Sea index 203 or one of the sixteen ordered grey indices.
+ * @return The active mode's sea colour or one of its ordered relief colours.
  */
 static unsigned char ColorForRelief(unsigned short rawHeight,
                                     unsigned short rawEastHeight,
@@ -96,9 +134,13 @@ static unsigned char ColorForRelief(unsigned short rawHeight,
     if (height < 0)
         return MAP_SEA_COLOR;
     eastHeight = TerrainSignedHeight(rawEastHeight);
-    shade = ((eastHeight - height) >> (6 - zoomLevel)) + 32;
+    shade = ((height - eastHeight) >> (6 - zoomLevel)) + 32;
     shade = ClampInt(shade, 0, 63);
+#ifdef PAL_256
     return reliefColors[shade >> 2];
+#else
+    return reliefColors[(shade * 14) >> 6];
+#endif
 }
 
 /** Convert interpolated terrain cells into a cached 200x200 indexed bitmap.
@@ -143,16 +185,16 @@ static void DrawMapFrame(unsigned char *screen)
         {
             int x = MAP_LEFT + offset;
             int y = MAP_TOP + offset;
-            screen[top * SCREEN_W + x] = color;
-            screen[bottom * SCREEN_W + x] = color;
-            screen[y * SCREEN_W + left] = color;
-            screen[y * SCREEN_W + right] = color;
+            WriteScreenPixel(screen, x, top, color);
+            WriteScreenPixel(screen, x, bottom, color);
+            WriteScreenPixel(screen, left, y, color);
+            WriteScreenPixel(screen, right, y, color);
         }
     }
 }
 
 /** Copy the cached map bitmap into the map area of the hardware screen.
- * @param screen Start of the 320x256 8-bit screen bank.
+ * @param screen Start of the active 320x256 screen bank.
  * @param bitmap Source 200x200 byte-per-pixel map buffer.
  */
 static void BlitMap(unsigned char *screen, const unsigned char *bitmap)
@@ -160,30 +202,37 @@ static void BlitMap(unsigned char *screen, const unsigned char *bitmap)
     int y;
 
     for (y = 0; y < TERRAIN_DISPLAY_SIZE; ++y)
+#ifdef PAL_256
         memcpy(screen + (MAP_TOP + y) * SCREEN_W + MAP_LEFT,
                bitmap + y * TERRAIN_DISPLAY_SIZE,
                TERRAIN_DISPLAY_SIZE);
+#else
+    {
+        int x;
+        unsigned char *destination = screen + (MAP_TOP + y) * SCREEN_STRIDE +
+                                     (MAP_LEFT >> 1);
+        const unsigned char *source = bitmap + y * TERRAIN_DISPLAY_SIZE;
+
+        for (x = 0; x < TERRAIN_DISPLAY_SIZE; x += 2)
+            destination[x >> 1] = (unsigned char)(
+                source[x] | (source[x + 1] << 4));
+    }
+#endif
     DrawMapFrame(screen);
 }
 
-/** Clear the part of the hardware screen not occupied by the map.
- * @param screen Start of the 320x256 8-bit screen bank.
+/** Clear the hardware screen before redrawing a changed map.
+ * @param screen Start of the active 320x256 screen bank.
  */
-static void ClearMapSurroundings(unsigned char *screen)
+static void ClearMapScreen(unsigned char *screen)
 {
-    int y;
-
-    for (y = 0; y < TERRAIN_DISPLAY_SIZE; ++y)
-        memset(screen + y * SCREEN_W + TERRAIN_DISPLAY_SIZE, 0,
-               SCREEN_W - TERRAIN_DISPLAY_SIZE);
-    memset(screen + TERRAIN_DISPLAY_SIZE * SCREEN_W, 0,
-           (SCREEN_H - TERRAIN_DISPLAY_SIZE) * SCREEN_W);
+    memset(screen, 0, SCREEN_STRIDE * SCREEN_H);
 }
 
 /** Restore a damaged overlay rectangle from the map bitmap or background.
  * Interior pixels come from bitmap, frame pixels are recomposed, and pixels
- * outside the map become black.
- * @param screen Start of the 320x256 8-bit screen bank.
+ * outside the map use the palette's background colour.
+ * @param screen Start of the active 320x256 screen bank.
  * @param bitmap Cached 200x200 map pixels.
  * @param left Left screen coordinate of the damaged rectangle.
  * @param top Top screen coordinate of the damaged rectangle.
@@ -203,17 +252,17 @@ static void RestoreRect(unsigned char *screen, const unsigned char *bitmap,
         for (x = left; x < right; ++x)
         {
             if (IsMapFramePixel(x, y))
-                screen[y * SCREEN_W + x] = MapFrameColor(x, y);
+                WriteScreenPixel(screen, x, y, MapFrameColor(x, y));
             else if (IsMapPixel(x, y))
-                screen[y * SCREEN_W + x] = bitmap[
-                    (y - MAP_TOP) * TERRAIN_DISPLAY_SIZE + x - MAP_LEFT];
+                WriteScreenPixel(screen, x, y, bitmap[
+                    (y - MAP_TOP) * TERRAIN_DISPLAY_SIZE + x - MAP_LEFT]);
             else
-                screen[y * SCREEN_W + x] = 0;
+                WriteScreenPixel(screen, x, y, 0);
         }
 }
 
 /** Write one clipped overlay pixel without allowing it to damage the frame.
- * @param screen Start of the 320x256 8-bit screen bank.
+ * @param screen Start of the active 320x256 screen bank.
  * @param x Horizontal screen coordinate.
  * @param y Vertical screen coordinate.
  * @param color Palette index to write.
@@ -223,7 +272,7 @@ static void PutPixel(unsigned char *screen, int x, int y,
 {
     if (x >= 0 && x < SCREEN_W && y >= 0 && y < SCREEN_H &&
         !IsMapFramePixel(x, y))
-        screen[y * SCREEN_W + x] = color;
+        WriteScreenPixel(screen, x, y, color);
 }
 
 /** Resolve a cursor position to an original-valid 50x50 extraction origin.
@@ -268,7 +317,7 @@ static int ZoomBoxOrigin(int mouseX, int mouseY, int *left, int *top)
 }
 
 /** Draw the alternating-colour outline of the next 100x100 zoom window.
- * @param screen Start of the 320x256 8-bit screen bank.
+ * @param screen Start of the active 320x256 screen bank.
  * @param left Left screen coordinate returned by ZoomBoxOrigin.
  * @param top Top screen coordinate returned by ZoomBoxOrigin.
  */
@@ -278,7 +327,7 @@ static void DrawZoomBox(unsigned char *screen, int left, int top)
 
     for (offset = 0; offset < 100; ++offset)
     {
-        unsigned char color = (offset & 4) ? 0 : 255;
+        unsigned char color = (offset & 4) ? 0 : MAP_HIGHLIGHT_COLOR;
         PutPixel(screen, left + offset, top, color);
         PutPixel(screen, left + offset, top + 99, color);
         PutPixel(screen, left, top + offset, color);
@@ -286,8 +335,8 @@ static void DrawZoomBox(unsigned char *screen, int left, int top)
     }
 }
 
-/** Draw a black-outlined white crosshair at the current mouse position.
- * @param screen Start of the 320x256 8-bit screen bank.
+/** Draw a dark-outlined bright crosshair at the current mouse position.
+ * @param screen Start of the active 320x256 screen bank.
  * @param mouseX Horizontal cursor coordinate in screen pixels.
  * @param mouseY Vertical cursor coordinate in screen pixels.
  */
@@ -302,8 +351,8 @@ static void DrawMouseCursor(unsigned char *screen, int mouseX, int mouseY)
     }
     for (offset = -3; offset <= 3; ++offset)
     {
-        PutPixel(screen, mouseX + offset, mouseY, 255);
-        PutPixel(screen, mouseX, mouseY + offset, 255);
+        PutPixel(screen, mouseX + offset, mouseY, MAP_HIGHLIGHT_COLOR);
+        PutPixel(screen, mouseX, mouseY + offset, MAP_HIGHLIGHT_COLOR);
     }
 }
 
@@ -336,7 +385,7 @@ static int SelectMapScreenBank(unsigned char **screen)
 
     *screen = (unsigned char *)vduVariables[2];
     UpdateMemAddress(vduVariables[2], 0);
-    memset(*screen, 0, SCREEN_W * SCREEN_H);
+    memset(*screen, 0, SCREEN_STRIDE * SCREEN_H);
     return 0;
 }
 
@@ -379,7 +428,6 @@ static int ReadSpace(void)
  */
 int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
 {
-#ifdef PAL_256
     HeightCell *grid;
     HeightCell *display;
     unsigned char *bitmap;
@@ -431,6 +479,9 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         free(bitmap);
         return -1;
     }
+#ifndef PAL_256
+    SetMapPalette();
+#endif
 
     for (;;)
     {
@@ -463,8 +514,8 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
 
         if ((pressed & 4) && selection->count < TERRAIN_MAX_ZOOM)
         {
-            /* Mode 13 has two OS units per pixel and OS_Mouse measures Y up
-               from the bottom of the screen. */
+            /* These modes have two OS units per pixel and OS_Mouse measures
+               Y up from the bottom of the screen. */
             if (validZoomOrigin)
             {
                 int index = selection->count;
@@ -504,7 +555,7 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         }
         if (mapDirty)
         {
-            ClearMapSurroundings(screen);
+            ClearMapScreen(screen);
             BlitMap(screen, bitmap);
             mapDirty = 0;
         }
@@ -534,10 +585,8 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
     free(grid);
     free(display);
     free(bitmap);
-    return result;
-#else
-    (void)source;
-    (void)selection;
-    return -1;
+#ifndef PAL_256
+    SetPalette();
 #endif
+    return result;
 }
