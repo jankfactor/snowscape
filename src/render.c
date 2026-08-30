@@ -359,11 +359,13 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
 
 #ifdef PAL_256
             k = (((*tri)->flags & 255) << 7) + j;
-            if (orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
+            /* Projected screen Y increases downwards. With the non-mirrored
+               camera basis, the terrain's front faces have positive area. */
+            if (orient2dint(_verts[0], _verts[1], _verts[2]) > 0)
                 FillEdgeLists((int)&_verts[0], k);
 #else
             k = (((*tri)->flags & 31) << 5) + j;
-            if (j < 16 && orient2dint(_verts[0], _verts[1], _verts[2]) < 0)
+            if (j < 16 && orient2dint(_verts[0], _verts[1], _verts[2]) > 0)
                 FillEdgeLists((int)&_verts[0], k);
 #endif // PAL_256
 

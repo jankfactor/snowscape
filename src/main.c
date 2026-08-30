@@ -49,6 +49,19 @@ extern unsigned int EdgeList;
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
+static const char *CompassDirection(int heading)
+{
+    /* Heading zero faces mesh +X (map east); map north is mesh -Z. */
+    static const char *const directions[] = {
+        "E", "NE", "N", "NW", "W", "SW", "S", "SE"
+    };
+    int normalizedHeading = heading & _SINETABLE_SIZE;
+    int sector = ((normalizedHeading + SINETABLE_SIZE / 16) &
+                  _SINETABLE_SIZE) / (SINETABLE_SIZE / 8);
+
+    return directions[sector];
+}
+
 /** Initialize Snowscape, run the interactive terrain view, and release resources.
  * @param argc Process argument count; currently unused.
  * @param argv Process argument vector; currently unused.
@@ -204,7 +217,7 @@ int main(int argc, char *argv[])
         while (isRunning)
         {
             err = _kernel_swi(OS_Mouse, &rin, &rout); // Get the mouse position
-            heading += clamp((rout.r[0] - mouseX) >> 7, -32, 32);
+            heading -= clamp((rout.r[0] - mouseX) >> 7, -32, 32);
             pitch += clamp((rout.r[1] - mouseY) >> 7, -32, 32);
             pitch = clamp(pitch, -100, 100);
 
@@ -247,6 +260,11 @@ int main(int argc, char *argv[])
 #endif // PAL_256
 
             RenderModel(&mat, &eyePos, heading); // Main render
+
+            rin.r[0] = 30;
+            err = _kernel_swi(OS_WriteC, &rin, &rout);
+
+            printf("HEADING: %s", CompassDirection(heading));
 
 #ifdef TIMING_LOG
             {

@@ -20,8 +20,8 @@ Mesh g_Mesh;
      (16 - HEIGHT_TO_FIX_SHIFT))
 
 /** Classify a terrain face using its sun-facing slope and deterministic hash.
- * @param riseX Height rise toward the light along X.
- * @param riseZ Height rise toward the light along Z.
+ * @param riseX Height rise toward mesh -X (map west).
+ * @param riseZ Height rise toward mesh -Z (map north).
  * @param hash Midwinter terrain detail/hash word.
  * @param secondTriangle Non-zero to use the hash byte for the second face.
  * @param base Neutral palette-ramp class.
@@ -34,7 +34,8 @@ Mesh g_Mesh;
  * terrain hash to break up otherwise solid bands of equal-coloured triangles.
  * The recovered notes do not yet identify the final 3D palette-byte table, so
  * keep Snowscape's palette ramps and reproduce the confirmed classification
- * inputs here. Each half of a cell uses a different byte of the hash word.
+ * inputs here. The summed slope term lights northwest-facing terrain; each
+ * half of a cell uses a different byte of the hash word.
  */
 static int TerrainShadeClass(fix riseX, fix riseZ, unsigned short hash,
                              int secondTriangle, int base, int shift,

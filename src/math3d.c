@@ -319,9 +319,10 @@ void LookAt(const V3D *eyePos, const V3D *forward, MAT43 *mat)
     up.y = 65536;
     up.z = 0;
 
-    // Calculate the right vector (perpendicular to forward and up)
-    right = CrossProductV3D(&up, forward);
-    up = CrossProductV3D(forward, &right);
+    /* Camera space uses positive Z as forward. Build a non-mirrored basis so
+       screen right agrees with world right for the supplied heading. */
+    right = CrossProductV3D(forward, &up);
+    up = CrossProductV3D(&right, forward);
 
     mat->tx = -DotProduct(&right, eyePos);
     mat->ty = -DotProduct(&up, eyePos);
