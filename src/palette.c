@@ -55,26 +55,24 @@ static unsigned int inputPalette[16] = {
 };
 
 #ifndef PAL_256
-/* Map-only ramp based on the Atari ST relief screen.  The original land
- * anchors occupy alternating steps; intervening blues make use of the
- * Archimedes mode's otherwise spare logical colours. */
+/* Map-screen palette expanded from the Amiga's twelve-bit colour registers. */
 static const unsigned int mapPalette[16] = {
-    0x000020, /* frame and background */
-    0x000060, /* sea */
-    0x101060,
-    0x202060,
-    0x303070,
-    0x404080,
-    0x505090,
-    0x6060a0,
-    0x7070b0,
-    0x8080c0,
-    0x9090d0,
-    0xa0a0e0,
-    0xb0b0e0,
-    0xc0c0e0,
-    0xd0d0f0,
-    0xe0e0ff
+    0xcc8800,
+    0x000066, /* sea */
+    0x00aa00,
+    0x222266,
+    0x66cc00,
+    0x88ee00,
+    0x444488,
+    0xeecc00,
+    0xcccc00,
+    0xccccee, /* UI highlight; duplicates colour 14 */
+    0x6666aa,
+    0x8888cc,
+    0xaaaaee,
+    0x880000,
+    0xccccee, /* brightest relief shade */
+    0x000022
 };
 #endif
 
@@ -141,7 +139,7 @@ void SetPalette(void)
 }
 
 #ifndef PAL_256
-/** Install the temporary blue relief-map palette. */
+/** Install the Amiga map-screen palette used by the relief view. */
 void SetMapPalette(void)
 {
     ProgramPalette(mapPalette);

@@ -12,7 +12,7 @@ void SetupPaletteLookup(int allocating);
 /** Program the application's logical colours into the RISC OS palette. */
 void SetPalette(void);
 #ifndef PAL_256
-/** Install the temporary blue relief-map palette. */
+/** Install the Amiga map-screen palette used by the relief view. */
 void SetMapPalette(void);
 #endif
 /** Write the hardware palette and logical-colour match counts to a file. */

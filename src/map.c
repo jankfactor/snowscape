@@ -15,10 +15,12 @@
 #ifdef PAL_256
 #define MAP_SEA_COLOR 203
 #define MAP_HIGHLIGHT_COLOR 255
+#define MAP_DARK_COLOR 0
 #define SCREEN_STRIDE SCREEN_W
 #else
 #define MAP_SEA_COLOR 1
-#define MAP_HIGHLIGHT_COLOR 15
+#define MAP_HIGHLIGHT_COLOR 9
+#define MAP_DARK_COLOR 15
 #define SCREEN_STRIDE (SCREEN_W / 2)
 #endif
 
@@ -37,14 +39,13 @@ static const unsigned char mapFrameColors[MAP_FRAME_WIDTH] = {
     0, 208, 255
 };
 #else
-/* The map palette reserves 0 for its frame and 1 for deep-blue sea. */
-static const unsigned char reliefColors[14] = {
-    2, 3, 4, 5, 6, 7, 8,
-    9, 10, 11, 12, 13, 14, 15
+/* Ordered darkest-to-lightest relief indices recovered from Amiga Chip RAM. */
+static const unsigned char reliefColors[7] = {
+    15, 3, 6, 10, 11, 12, 14
 };
 
 static const unsigned char mapFrameColors[MAP_FRAME_WIDTH] = {
-    0, 11, 15
+    15, 9, 15
 };
 #endif
 
@@ -115,9 +116,8 @@ static unsigned char MapFrameColor(int x, int y)
 }
 
 /** Select the relief-map colour for one land sample and its eastern neighbor.
- * This follows Midwinter's relief viewer: east-facing height change is
- * centered on a 64-shade ramp and becomes more sensitive at each zoom level.
- * The ramp is reduced to the shades available in the active screen mode.
+ * The VGA painter uses a 64-shade ramp.  The Amiga painter uses seven palette
+ * entries, a three-bit coarser slope shift, and a brighter neutral bias.
  * @param rawHeight Midwinter signed height stored in an unsigned word.
  * @param rawEastHeight Height of the sample immediately to the east.
  * @param zoomLevel Current map zoom level from zero through four.
@@ -134,12 +134,13 @@ static unsigned char ColorForRelief(unsigned short rawHeight,
     if (height < 0)
         return MAP_SEA_COLOR;
     eastHeight = TerrainSignedHeight(rawEastHeight);
-    shade = ((height - eastHeight) >> (6 - zoomLevel)) + 32;
-    shade = ClampInt(shade, 0, 63);
 #ifdef PAL_256
+    shade = ((eastHeight - height) >> (6 - zoomLevel)) + 32;
+    shade = ClampInt(shade, 0, 63);
     return reliefColors[shade >> 2];
 #else
-    return reliefColors[(shade * 14) >> 6];
+    shade = ((eastHeight - height) >> (9 - zoomLevel)) + 4;
+    return reliefColors[ClampInt(shade, 0, 6)];
 #endif
 }
 
@@ -327,7 +328,8 @@ static void DrawZoomBox(unsigned char *screen, int left, int top)
 
     for (offset = 0; offset < 100; ++offset)
     {
-        unsigned char color = (offset & 4) ? 0 : MAP_HIGHLIGHT_COLOR;
+        unsigned char color = (offset & 4)
+            ? MAP_DARK_COLOR : MAP_HIGHLIGHT_COLOR;
         PutPixel(screen, left + offset, top, color);
         PutPixel(screen, left + offset, top + 99, color);
         PutPixel(screen, left, top + offset, color);
@@ -346,8 +348,8 @@ static void DrawMouseCursor(unsigned char *screen, int mouseX, int mouseY)
 
     for (offset = -5; offset <= 5; ++offset)
     {
-        PutPixel(screen, mouseX + offset, mouseY, 0);
-        PutPixel(screen, mouseX, mouseY + offset, 0);
+        PutPixel(screen, mouseX + offset, mouseY, MAP_DARK_COLOR);
+        PutPixel(screen, mouseX, mouseY + offset, MAP_DARK_COLOR);
     }
     for (offset = -3; offset <= 3; ++offset)
     {
