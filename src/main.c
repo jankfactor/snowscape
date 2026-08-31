@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
 #ifdef PAL_256
             ClearScreen(0xCECECECE, 1); // Clear the new draw buffer
 #else
-            ClearScreen(0xFFFFFFFF, 1); // Clear the new draw buffer
+            ClearScreen(0x22222222, 1); // Clear the new draw buffer
 #endif // PAL_256
 
             RenderModel(&mat, &eyePos, heading); // Main render

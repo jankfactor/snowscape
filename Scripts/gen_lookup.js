@@ -1,11 +1,14 @@
 // prettier-ignore
+
+// Original Amiga Palette, COLOR0-COLOR15 in same order.
 const inputPalette = [
   0x000000,
+  0xEEEEEE,
+  0x22AAEE,
   0x004466,
   0x226688,
   0x4488AA,
   0x88CCEE,
-  0xEEEEEE,
   0x442200,
   0x662200,
   0x884422,
@@ -15,11 +18,16 @@ const inputPalette = [
   0xAA6600,
   0xAA2200,
   0xCCCC00,
-  0x22AAEE,
+];
+
+const rowBlendIndices = [
+  0, 3, 4, 5, 6, 1
 ];
 
 const rowLength = 16;
 const bayerSize = 2; // Bayer pattern size (2x2)
+const rowBlendIntensities = [0.25, 0.5, 0.75];
+const straightBlend = true;
 
 const findNearestColor = (color, palette) => {
   const chroma = require("chroma-js");
@@ -81,8 +89,8 @@ const generateGradient = (startColor, endColor, steps) => {
 };
 
 // Generate a row of the lookup table
-const generateLookupRow = (row, palette, testColor) => {
-  const paletteColor = palette[row % palette.length];
+const generateLookupRow = (paletteIndex, palette, testColor) => {
+  const paletteColor = palette[paletteIndex];
   // Generate a gradient from palette color to test color
   const gradientColors = generateGradient(paletteColor, testColor, rowLength);
   const rowIndices = [];
@@ -141,96 +149,126 @@ const drawBayerPattern = (x, y, intensity, color1, color2, png) => {
   }
 };
 
-const fill2x2BlockDiagonal = (x, y, png) => {
-  // Enough pixels to use a 2x2 bayer dither pattern
+const renderLookupRow = (paletteIndex, palette, testColor, useStraightBlend) => {
+  const width = rowLength * bayerSize; // Number of columns in the lookup table
+  const png = new PNG({ width, height: bayerSize });
 
-  for (let i = 0; i < bayerSize; i++) {
-    const pixelX = x * bayerSize + i;
-    const pixelY = y * bayerSize + i;
-    const offsetY = (y - 1) * bayerSize + i;
+  if (useStraightBlend) {
+    const blendSteps = bayerSize * bayerSize;
+    const duplicateCount = rowLength / blendSteps;
 
-    // Set pixel color in the PNG
-    png.data[(offsetY * png.width + pixelX) * 4] = png.data[(pixelY * png.width + pixelX) * 4]
-    png.data[(offsetY * png.width + pixelX) * 4 + 1] = png.data[(pixelY * png.width + pixelX) * 4 + 1]
-    png.data[(offsetY * png.width + pixelX) * 4 + 2] = png.data[(pixelY * png.width + pixelX) * 4 + 2]
-    png.data[(offsetY * png.width + pixelX) * 4 + 3] = png.data[(pixelY * png.width + pixelX) * 4 + 3]
+    for (let x = 0; x < rowLength; x++) {
+      const blendStep = Math.floor(x / duplicateCount);
+      drawBayerPattern(
+        x,
+        0,
+        blendStep / blendSteps,
+        palette[paletteIndex],
+        testColor,
+        png
+      );
+    }
+
+    return png;
+  }
+
+  const rowIndices = generateLookupRow(paletteIndex, palette, testColor);
+
+  let prevColor = rowIndices.length - 1;
+  let nextColor = rowIndices.length - 1;
+  let col = rowIndices.length - 1;
+  let firstBlock = true;
+
+  while (col >= 0) {
+    col--;
+
+    // The color changed or we reached the start of the row
+    if (col <= 0 || rowIndices[col] !== rowIndices[nextColor]) {
+      prevColor = Math.max(col, 0);
+
+      const spread = nextColor - prevColor;
+      const color1 = rowIndices[prevColor];
+      const color2 = rowIndices[nextColor];
+
+      for (let x = prevColor; x <= nextColor; x++) {
+        let intensity = spread === 0 ? 0 : (x - prevColor) / spread;
+
+        if (firstBlock) {
+          intensity = Math.min(
+            intensity,
+            1.0 - 1.0 / (bayerSize * bayerSize)
+          );
+        }
+
+        drawBayerPattern(
+          x,
+          0,
+          intensity,
+          palette[color1],
+          palette[color2],
+          png
+        );
+      }
+
+      firstBlock = false;
+      nextColor = prevColor;
+    }
+  }
+
+  return png;
+};
+
+const copyLookupRow = (source, row, png) => {
+  const rowOffset = row * bayerSize * png.width * 4;
+  source.data.copy(png.data, rowOffset);
+};
+
+const drawBayerRowBlend = (row1, row2, row, intensity, png) => {
+  const destinationY = row * bayerSize;
+
+  for (let y = 0; y < bayerSize; y++) {
+    for (let x = 0; x < png.width; x++) {
+      const source = intensity <= dither(x % bayerSize, y, bayerSize)
+        ? row1
+        : row2;
+      const sourceOffset = (y * png.width + x) * 4;
+      const destinationOffset = ((destinationY + y) * png.width + x) * 4;
+
+      for (let channel = 0; channel < 4; channel++) {
+        png.data[destinationOffset + channel] = source.data[sourceOffset + channel];
+      }
+    }
   }
 };
 
-const generateLookupTablePNG = (palette, testColor) => {
-  const height = inputPalette.length * bayerSize * 2; // Number of rows in the lookup table
-  const width = rowLength * bayerSize; // Number of columns in the lookup table
+const generateLookupTablePNG = (
+  palette,
+  testColor,
+  blendIndices,
+  useStraightBlend
+) => {
+  const rowCount = blendIndices.length +
+    (blendIndices.length - 1) * rowBlendIntensities.length;
+  const height = rowCount * bayerSize;
+  const width = rowLength * bayerSize;
   const png = new PNG({ width, height });
+  const anchorRows = blendIndices.map((paletteIndex) =>
+    renderLookupRow(paletteIndex, palette, testColor, useStraightBlend)
+  );
+  let outputRow = 0;
 
-  // Fill the PNG with the generated lookup table
-  for (let y = 0; y < height / 2; y++) {
-    const rowIndices = generateLookupRow(y, palette, testColor);
-
-    let prevColor = rowIndices.length - 1;
-    let nextColor = rowIndices.length - 1;
-    let col = rowIndices.length - 1;
-    let firstBlock = true;
-
-    while (col >= 0) {
-      col--;
-
-      // The color changed or we reached the start of the row
-      if (col <= 0 || rowIndices[col] !== rowIndices[nextColor]) {
-        prevColor = col;
-        if (prevColor < 0) {
-          prevColor = 0;
-        }
-
-        let spread = nextColor - prevColor;
-
-        const color1 = rowIndices[prevColor];
-        const color2 = rowIndices[nextColor];
-
-        for (let x = prevColor; x <= nextColor; x++) {
-          let intensity = (x - prevColor) / spread;
-
-          if (firstBlock) {
-            intensity = Math.min(
-              intensity,
-              1.0 - 1.0 / (bayerSize * bayerSize)
-            );
-          }
-
-          drawBayerPattern(
-            x,
-            y * 2,
-            intensity,
-            palette[color1],
-            palette[color2],
-            png
-          );
-
-          if (y > 0) {
-            fill2x2BlockDiagonal(
-              x,
-              y * 2,
-              png
-            );
-          }
-
-          // Fill out the second row of the Bayer pattern
-          drawBayerPattern(
-            x,
-            y * 2 + 1,
-            intensity,
-            palette[color1],
-            palette[color2],
-            png
-          );
-        }
-
-        if (firstBlock) {
-          firstBlock = false;
-        }
-
-        nextColor = prevColor;
-      }
+  copyLookupRow(anchorRows[0], outputRow++, png);
+  for (let row = 0; row < anchorRows.length - 1; row++) {
+    for (const intensity of rowBlendIntensities) {
+      drawBayerRowBlend(
+        anchorRows[row],
+        anchorRows[row + 1],
+        outputRow++,
+        intensity,
+        png
+      );
     }
+    copyLookupRow(anchorRows[row + 1], outputRow++, png);
   }
 
   return png;
@@ -306,7 +344,12 @@ const exportPNGtoBinaryLookup = (png) => {
 
 // Generate and save the lookup table PNG
 console.log("Generating color lookup table...");
-const lookupTable = generateLookupTablePNG(inputPalette, testColor);
+const lookupTable = generateLookupTablePNG(
+  inputPalette,
+  testColor,
+  rowBlendIndices,
+  straightBlend
+);
 const lookupTableBuffer = exportPNGtoBinaryLookup(lookupTable);
 console.log("Exporting lookup table to binary format...");
 fs.writeFileSync("lookup9", lookupTableBuffer);

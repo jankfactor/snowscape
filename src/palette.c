@@ -36,11 +36,12 @@ static unsigned int inputPalette[16] = {
     (0xE8ECE8),
 #else  // Original ST/Amiga Midwinter Palette
     (0x000000),
+    (0xEEEEEE),
+    (0x22AAEE),
     (0x004466),
     (0x226688),
     (0x4488AA),
     (0x88CCEE),
-    (0xEEEEEE),
     (0x442200),
     (0x662200),
     (0x884422),
@@ -50,7 +51,6 @@ static unsigned int inputPalette[16] = {
     (0xAA6600),
     (0xAA2200),
     (0xCCCC00),
-    (0x22AAEE),
 #endif // PAL_256
 };
 

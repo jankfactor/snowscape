@@ -10,47 +10,87 @@ Mesh g_Mesh;
 #define TERRAIN_MARGIN ((MAPW - TERRAIN_GRID_SIZE) / 2)
 #define HEIGHT_TO_FIX_SHIFT (9 + WORLD_SCALE_SHIFT)
 #define HEIGHT_TO_FIX (1 << HEIGHT_TO_FIX_SHIFT)
-#define TERRAIN_SHADE_SHIFT (16 - WORLD_SCALE_REDUCTION)
 
 /* Height is a signed 8.8 source word scaled by HEIGHT_TO_FIX. Multiplying the
    source word by the full 16-bit barycentric weight preserves all available
    interpolation precision and cannot overflow a signed 32-bit ARM register. */
-#define INTERPOLATE_HEIGHT(height, weight) \
+#define INTERPOLATE_HEIGHT(height, weight)             \
     ((((height) >> HEIGHT_TO_FIX_SHIFT) * (weight)) >> \
      (16 - HEIGHT_TO_FIX_SHIFT))
 
-/** Classify a terrain face using its sun-facing slope and deterministic hash.
- * @param riseX Height rise toward mesh -X (map west).
- * @param riseZ Height rise toward mesh -Z (map north).
- * @param hash Midwinter terrain detail/hash word.
- * @param secondTriangle Non-zero to use the hash byte for the second face.
- * @param base Neutral palette-ramp class.
- * @param shift Fixed-point slope scaling shift.
- * @param minimum Lowest permitted class.
- * @param maximum Highest permitted class.
- * @return Clamped palette-ramp class.
- *
- * Midwinter classifies a face from its slope towards the sun, then uses the
- * terrain hash to break up otherwise solid bands of equal-coloured triangles.
- * The recovered notes do not yet identify the final 3D palette-byte table, so
- * keep Snowscape's palette ramps and reproduce the confirmed classification
- * inputs here. The summed slope term lights northwest-facing terrain; each
- * half of a cell uses a different byte of the hash word.
- */
-static int TerrainShadeClass(fix riseX, fix riseZ, unsigned short hash,
-                             int secondTriangle, int base, int shift,
-                             int minimum, int maximum)
+/** Interpret the low word of an arithmetic result as a signed 16-bit value. */
+static int Signed16(int value)
 {
-    static const signed char hashVariationTable[4] = {-1, 0, 0, 1};
-    unsigned char hashByte;
-    int hashVariation;
+    value &= 0xffff;
+    if (value & 0x8000)
+        value -= 0x10000;
+    return value;
+}
 
-    hashByte = secondTriangle ? (unsigned char)hash :
-                                (unsigned char)(hash >> 8);
-    hashVariation = hashVariationTable[(hashByte >> 6) & 3];
+/** Return the integer square root of an unsigned 32-bit value. */
+static unsigned int IntegerSquareRoot32(unsigned int value)
+{
+    unsigned int bit = 1u << 30;
+    unsigned int root = 0;
 
-    return clamp(base + ((riseX + riseZ) >> shift) + hashVariation,
-                 minimum, maximum);
+    while (bit > value)
+        bit >>= 2;
+
+    while (bit != 0)
+    {
+        if (value >= root + bit)
+        {
+            value -= root + bit;
+            root = (root >> 1) + bit;
+        }
+        else
+        {
+            root >>= 1;
+        }
+        bit >>= 2;
+    }
+    return root;
+}
+
+/** Calculate Midwinter's 24-level Lambert index for a terrain triangle.
+ * @param triangleHeight Height of any vertex joined by the two slope terms.
+ * @param slopeX Signed 16-bit terrain-normal X component.
+ * @param slopeY Signed 16-bit terrain-normal Y component.
+ * @return A Lambert light index from 2 through 23, or 24 for sea.
+ *
+ * The unnormalised terrain normal is (slopeX, slopeY, 256), and the effective
+ * light vector is (0, 3, 2). Midwinter performs the intermediate arithmetic
+ * with signed 16-bit slope and dot-product values.
+ */
+static int TerrainLightIndex(int triangleHeight, int slopeX, int slopeY)
+{
+    unsigned int normalLength;
+    unsigned int normalLengthSquared;
+    unsigned int slopeXSquared;
+    unsigned int slopeYSquared;
+    int dotTerm;
+    int numerator;
+    int light;
+
+    slopeX = Signed16(slopeX);
+    slopeY = Signed16(slopeY);
+
+    if (triangleHeight == 0 && slopeX == 0 && slopeY == 0)
+        return 24;
+
+    slopeXSquared = (unsigned int)(slopeX * slopeX);
+    slopeYSquared = (unsigned int)(slopeY * slopeY);
+    normalLengthSquared = slopeXSquared + slopeYSquared + 256u * 256u;
+    normalLength = IntegerSquareRoot32(normalLengthSquared);
+
+    dotTerm = Signed16(3 * slopeY + 2 * 256);
+    numerator = dotTerm * 8;
+    if (numerator < 0)
+        light = -((-numerator) / (int)normalLength);
+    else
+        light = numerator / (int)normalLength;
+
+    return min(max(light, 0) + 2, 20);
 }
 
 /** Construct world vertices and shaded checkerboard faces from selected terrain.
@@ -62,11 +102,11 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
 {
     int i, j, k;
     int terrainX, terrainZ;
-    unsigned short terrainHash;
     HeightCell *terrain;
     TRI face;
     int facecounter = 0;
     fix tl, tr, bl, br;
+    int tlHeight, trHeight, blHeight, brHeight;
 
 #ifdef PAL_256
     // unsigned char range[48] = { 8, 9, 10, 11, 164, 165, 166, 167,216, 217, 218, 219, 252, 253, 254, 255,
@@ -107,8 +147,8 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
             /* Preserve Midwinter's signed 8.8 height, then apply the uniform
                internal world scale used by X and Z. */
             g_Mesh.verts[IX(i, j)].y = ((fix)TerrainSignedHeight(
-                terrain[terrainZ * TERRAIN_GRID_SIZE + terrainX].height)) *
-                HEIGHT_TO_FIX;
+                                           terrain[terrainZ * TERRAIN_GRID_SIZE + terrainX].height)) *
+                                       HEIGHT_TO_FIX;
         }
     for (j = 0; j < MAPW; ++j)
         for (i = 0; i < MAPW; ++i)
@@ -117,9 +157,10 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
             tr = g_Mesh.verts[IX(i + 1, j)].y;
             bl = g_Mesh.verts[IX(i, j + 1)].y;
             br = g_Mesh.verts[IX(i + 1, j + 1)].y;
-            terrainX = clamp(i - TERRAIN_MARGIN, 0, TERRAIN_GRID_SIZE - 1);
-            terrainZ = clamp(j - TERRAIN_MARGIN, 0, TERRAIN_GRID_SIZE - 1);
-            terrainHash = terrain[terrainZ * TERRAIN_GRID_SIZE + terrainX].detail;
+            tlHeight = tl / HEIGHT_TO_FIX;
+            trHeight = tr / HEIGHT_TO_FIX;
+            blHeight = bl / HEIGHT_TO_FIX;
+            brHeight = br / HEIGHT_TO_FIX;
 
             // Midwinter used a |\|/| pattern for the terrain.
             //                  |/|\|
@@ -139,17 +180,15 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
                 face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
 
+                k = TerrainLightIndex(tlHeight, tlHeight - trHeight,
+                                      trHeight - brHeight);
 #ifdef PAL_256
-                k = TerrainShadeClass(tl - tr, tr - br, terrainHash, 0,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = TerrainShadeClass(tl - tr, tr - br, terrainHash, 0,
-                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -169,17 +208,15 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
                 face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
 
+                k = TerrainLightIndex(blHeight, blHeight - brHeight,
+                                      tlHeight - blHeight);
 #ifdef PAL_256
-                k = TerrainShadeClass(bl - br, tl - bl, terrainHash, 1,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = TerrainShadeClass(bl - br, tl - bl, terrainHash, 1,
-                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -200,17 +237,15 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.next = NULL;
                 face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
                 face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
+                k = TerrainLightIndex(tlHeight, tlHeight - trHeight,
+                                      tlHeight - blHeight);
 #ifdef PAL_256
-                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
-                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -230,17 +265,15 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
                 face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
 
+                k = TerrainLightIndex(brHeight, blHeight - brHeight,
+                                      trHeight - brHeight);
 #ifdef PAL_256
-                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
                 if (tl > SNOWLEVEL)
                     k += 32;
                 else if (tl > SANDLEVEL)
                     k += 16;
                 face.flags = range[k];
 #else
-                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
-                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -321,37 +354,7 @@ fix GetHeight(V3D *eyePos)
 
     if ((mapX + mapZ) & 1) // Top Left / Bottom Right
     {
-        //  ___
-        // |  /|
-        // | / |
-        // |/__|
 
-        // 2 shared corners
-        B = g_Mesh.verts[IX(mapX + 1, mapZ)].y;
-        C = g_Mesh.verts[IX(mapX, mapZ + 1)].y;
-
-        if ((localX + localZ) < 65536)
-        {
-            // Top Left Triangle
-            A = g_Mesh.verts[IX(mapX, mapZ)].y;
-            B = INTERPOLATE_HEIGHT(B, localX);
-            C = INTERPOLATE_HEIGHT(C, localZ);
-        }
-        else
-        {
-            // Bottom Right Triangle
-            // Flip the local coords
-            localX = 65536 - localX;
-            localZ = 65536 - localZ;
-            A = g_Mesh.verts[IX(mapX + 1, mapZ + 1)].y;
-            B = INTERPOLATE_HEIGHT(B, localZ);
-            C = INTERPOLATE_HEIGHT(C, localX);
-        }
-
-        A = INTERPOLATE_HEIGHT(A, (65536 - localX - localZ));
-    }
-    else // Top Right / Bottom Left
-    {
         //  ___
         // |\  |
         // | \ |
@@ -381,6 +384,37 @@ fix GetHeight(V3D *eyePos)
 
         A = INTERPOLATE_HEIGHT(A, (65536 - localX - localZ));
     }
+    else // Top Right / Bottom Left
+    {
+        //  ___
+        // |  /|
+        // | / |
+        // |/__|
 
-    return A + B + C + (CELL_QUARTER_FIX >> 1);
+        // 2 shared corners
+        B = g_Mesh.verts[IX(mapX + 1, mapZ)].y;
+        C = g_Mesh.verts[IX(mapX, mapZ + 1)].y;
+
+        if ((localX + localZ) < 65536)
+        {
+            // Top Left Triangle
+            A = g_Mesh.verts[IX(mapX, mapZ)].y;
+            B = INTERPOLATE_HEIGHT(B, localX);
+            C = INTERPOLATE_HEIGHT(C, localZ);
+        }
+        else
+        {
+            // Bottom Right Triangle
+            // Flip the local coords
+            localX = 65536 - localX;
+            localZ = 65536 - localZ;
+            A = g_Mesh.verts[IX(mapX + 1, mapZ + 1)].y;
+            B = INTERPOLATE_HEIGHT(B, localZ);
+            C = INTERPOLATE_HEIGHT(C, localX);
+        }
+
+        A = INTERPOLATE_HEIGHT(A, (65536 - localX - localZ));
+    }
+
+    return A + B + C + (CELL_QUARTER_FIX >> 2);
 }
