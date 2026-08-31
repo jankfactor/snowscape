@@ -52,11 +52,12 @@ static unsigned int IntegerSquareRoot32(unsigned int value)
     return root;
 }
 
-/** Calculate Midwinter's 24-level Lambert index for a terrain triangle.
+/** Calculate Midwinter's Lambert index for a terrain triangle.
  * @param triangleHeight Height of any vertex joined by the two slope terms.
  * @param slopeX Signed 16-bit terrain-normal X component.
  * @param slopeY Signed 16-bit terrain-normal Y component.
- * @return A Lambert light index from 2 through 23, or 24 for sea.
+ * @return In 256-colour mode, an index from 0 through 15. In 16-colour mode,
+ *         an index from 2 through 23, or 24 for flat sea.
  *
  * The unnormalised terrain normal is (slopeX, slopeY, 256), and the effective
  * light vector is (0, 3, 2). Midwinter performs the intermediate arithmetic
@@ -75,8 +76,12 @@ static int TerrainLightIndex(int triangleHeight, int slopeX, int slopeY)
     slopeX = Signed16(slopeX);
     slopeY = Signed16(slopeY);
 
+#ifndef PAL_256
     if (triangleHeight == 0 && slopeX == 0 && slopeY == 0)
         return 24;
+#else
+    (void)triangleHeight;
+#endif
 
     slopeXSquared = (unsigned int)(slopeX * slopeX);
     slopeYSquared = (unsigned int)(slopeY * slopeY);
@@ -84,13 +89,23 @@ static int TerrainLightIndex(int triangleHeight, int slopeX, int slopeY)
     normalLength = IntegerSquareRoot32(normalLengthSquared);
 
     dotTerm = Signed16(3 * slopeY + 2 * 256);
+#ifdef PAL_256
+    /* A scale of six maps a level normal to index 12, matching the original
+       256-colour terrain bias while retaining the complete 0..15 range. */
+    numerator = dotTerm * 6;
+#else
     numerator = dotTerm * 8;
+#endif // PAL_256
     if (numerator < 0)
         light = -((-numerator) / (int)normalLength);
     else
         light = numerator / (int)normalLength;
 
+#ifdef PAL_256
+    return min(max(light, 0), 15);
+#else
     return min(max(light, 0) + 2, 23);
+#endif // PAL_256
 }
 
 /** Construct world vertices and shaded checkerboard faces from selected terrain.
@@ -109,12 +124,9 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
     int tlHeight, trHeight, blHeight, brHeight;
 
 #ifdef PAL_256
-    // unsigned char range[48] = { 8, 9, 10, 11, 164, 165, 166, 167,216, 217, 218, 219, 252, 253, 254, 255,
-    //                            8, 9, 10, 11, 164, 165, 166, 167,216, 217, 218, 219, 252, 253, 254, 255,
-    //                            8, 9, 10, 11, 164, 165, 166, 167,216, 217, 218, 219, 252, 253, 254, 255};
-    unsigned char range[48] = {0, 1, 2, 3, 44, 45, 46, 47, 208, 209, 210, 211, 252, 253, 254, 255,
-                               0, 1, 2, 3, 44, 45, 46, 47, 208, 209, 210, 211, 252, 253, 254, 255,
-                               0, 1, 2, 3, 44, 45, 46, 47, 208, 209, 210, 211, 252, 253, 254, 255};
+    unsigned char range[48] = {49, 49, 49, 49, 89, 89, 89, 89, 90, 90, 91, 91, 92, 92, 118, 118,
+                               32, 32, 32, 32, 35, 35, 40, 40, 68, 68, 68, 112, 112, 115, 115, 113,
+                               160, 160, 160, 160, 161, 161, 161, 161, 194, 194, 194, 194, 247, 247, 255, 255};
 #endif // PAL_256
 
     terrain = (HeightCell *)malloc(TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE *

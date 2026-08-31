@@ -338,23 +338,23 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 k = abs((*tri)->centerpoint.y - eyePos->z);
                 j = (j > k) ? (j + (k >> 1)) : (k + (j >> 1));
 
-#ifdef PAL_256
 #ifdef A5000
+#ifdef PAL_256
                 j >>= (18 - WORLD_SCALE_REDUCTION);
                 j = max(0, min(j - 16, 63));
-#else
-                j >>= (17 - WORLD_SCALE_REDUCTION);
-                j = max(0, min(j - 4, 63));
-#endif // A5000
 #else  // 16 COLOR
-#ifdef A5000
-                j >>= (20 - WORLD_SCALE_REDUCTION);
-                j = max(0, j - 4);
+                j >>= (19 - WORLD_SCALE_REDUCTION);
+                j = max(0, j - 16);
+#endif // PAL_256
+#else  // !A5000
+#ifdef PAL_256
+                j >>= (17 - WORLD_SCALE_REDUCTION);
+                j = max(0, min(j - 16, 63));
 #else
                 j >>= (19 - WORLD_SCALE_REDUCTION);
                 j = max(0, j - 16);
-#endif // A5000
 #endif // PAL_256
+#endif // A5000
             }
 
 #ifdef PAL_256

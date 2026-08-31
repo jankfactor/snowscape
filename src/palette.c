@@ -55,6 +55,8 @@ static unsigned int inputPalette[16] = {
 };
 
 #ifndef PAL_256
+#define FOG_LOOKUP9_BLEND_TABLE_WORDS (24 * 2 * 16)
+
 /* Map-screen palette expanded from the Amiga's twelve-bit colour registers. */
 static const unsigned int mapPalette[16] = {
     0xcc8800,
@@ -143,6 +145,16 @@ void SetPalette(void)
 void SetMapPalette(void)
 {
     ProgramPalette(mapPalette);
+}
+
+/** Toggle the assembly rasterizer between the two concatenated lookup tables. */
+void ToggleFogLookupBlend(void)
+{
+    unsigned int straightTable = (unsigned int)g_fogTable;
+    unsigned int interpolatedTable =
+        (unsigned int)(g_fogTable + FOG_LOOKUP9_BLEND_TABLE_WORDS);
+
+    FogTable = FogTable == straightTable ? interpolatedTable : straightTable;
 }
 #endif
 

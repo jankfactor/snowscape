@@ -48,6 +48,7 @@ extern unsigned int EdgeList;
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
+#define KEY_F 67
 
 static const char *CompassDirection(int heading)
 {
@@ -71,6 +72,9 @@ int main(int argc, char *argv[])
 {
     int i, swi_data[10], isRunning = 1, exitCode = 0;
     int terrainGenerated = 0;
+#ifndef PAL_256
+    int fogKeyWasPressed = 0;
+#endif
     int heading = 498, pitch = -53, angle = 0;
     V3D eyePos, direction;
     V3D verts[3];
@@ -164,6 +168,12 @@ int main(int argc, char *argv[])
                worldX, worldY);
     }
 
+#ifdef PAL_256
+    /* Keep Mode 13's default palette for the map, then install the renderer's
+       configurable colours only when entering the 3D view. */
+    SetPalette();
+#endif // PAL_256
+
     /* Remove the map from both banks before entering the 3D view. */
     for (i = 0; i < 2; ++i)
     {
@@ -224,6 +234,16 @@ int main(int argc, char *argv[])
             if (KeyPress(112)) // Escape
                 isRunning = 0;
 
+#ifndef PAL_256
+            {
+                int fogKeyPressed = KeyPress(KEY_F);
+
+                if (fogKeyPressed && !fogKeyWasPressed)
+                    ToggleFogLookupBlend();
+                fogKeyWasPressed = fogKeyPressed;
+            }
+#endif // PAL_256
+
             if (rout.r[2] & 4) // Left mouse button - Walk forward
             {
                 // --angle;
@@ -254,17 +274,17 @@ int main(int argc, char *argv[])
             LookAt(&eyePos, &direction, &mat); // TODO - SLOWWWWWW - 2 cross products in here
 
 #ifdef PAL_256
-            ClearScreen(0xCECECECE, 1); // Clear the new draw buffer
+            ClearScreen(0xC6C6C6C6, 1); // Clear the new draw buffer
 #else
             ClearScreen(0x22222222, 1); // Clear the new draw buffer
 #endif // PAL_256
 
             RenderModel(&mat, &eyePos, heading); // Main render
 
-            rin.r[0] = 30;
-            err = _kernel_swi(OS_WriteC, &rin, &rout);
+            // rin.r[0] = 30;
+            // err = _kernel_swi(OS_WriteC, &rin, &rout);
 
-            printf("HEADING: %s", CompassDirection(heading));
+            // printf("HEADING: %s", CompassDirection(heading));
 
 #ifdef TIMING_LOG
             {

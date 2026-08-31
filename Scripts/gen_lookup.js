@@ -32,7 +32,6 @@ const solidRowCopies = {
 const rowLength = 16;
 const bayerSize = 2; // Bayer pattern size (2x2)
 const rowBlendIntensities = [0.25, 0.5, 0.75];
-const straightBlend = true;
 
 const findNearestColor = (color, palette) => {
   const chroma = require("chroma-js");
@@ -303,6 +302,26 @@ const generateLookupTablePNG = (
   return png;
 };
 
+/** Stack lookup-table previews in binary layout order. */
+const stackLookupTables = (tables) => {
+  const width = tables[0].width;
+  const height = tables.reduce((total, table) => {
+    if (table.width !== width) {
+      throw new Error("Lookup tables must have matching widths");
+    }
+    return total + table.height;
+  }, 0);
+  const combined = new PNG({ width, height });
+  let destinationOffset = 0;
+
+  for (const table of tables) {
+    table.data.copy(combined.data, destinationOffset);
+    destinationOffset += table.data.length;
+  }
+
+  return combined;
+};
+
 /**
  * Exports PNG data to a binary lookup table format.
  * Each pixel is stored as a 4-bit index to the palette.
@@ -371,18 +390,38 @@ const exportPNGtoBinaryLookup = (png) => {
   return buffer;
 };
 
-// Generate and save the lookup table PNG
-console.log("Generating color lookup table...");
-const lookupTable = generateLookupTablePNG(
+// Keep both blend methods in one table so FogTable can select either one by
+// changing its base address. Straight blend comes first; interpolated follows.
+console.log("Generating straight-blend lookup table...");
+const straightLookupTable = generateLookupTablePNG(
   inputPalette,
   testColor,
   rowBlendIndices,
-  straightBlend
+  true
 );
-const lookupTableBuffer = exportPNGtoBinaryLookup(lookupTable);
+console.log("Generating interpolated-blend lookup table...");
+const interpolatedLookupTable = generateLookupTablePNG(
+  inputPalette,
+  testColor,
+  rowBlendIndices,
+  false
+);
+const straightLookupBuffer = exportPNGtoBinaryLookup(straightLookupTable);
+const interpolatedLookupBuffer = exportPNGtoBinaryLookup(
+  interpolatedLookupTable
+);
+const lookupTable = stackLookupTables([
+  straightLookupTable,
+  interpolatedLookupTable,
+]);
+const lookupTableBuffer = Buffer.concat([
+  straightLookupBuffer,
+  interpolatedLookupBuffer,
+]);
 console.log("Exporting lookup table to binary format...");
 fs.writeFileSync("lookup9", lookupTableBuffer);
-console.log("Lookup table saved as color_lookup.bin");
+console.log(`Interpolated blend starts at byte ${straightLookupBuffer.length}`);
+console.log("Lookup table saved as lookup9");
 const pngBuffer = PNG.sync.write(lookupTable);
 fs.writeFileSync("color_lookup.png", pngBuffer);
 console.log("Lookup table saved as color_lookup.png");

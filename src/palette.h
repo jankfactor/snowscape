@@ -14,6 +14,8 @@ void SetPalette(void);
 #ifndef PAL_256
 /** Install the Amiga map-screen palette used by the relief view. */
 void SetMapPalette(void);
+/** Toggle between the straight and interpolated 16-colour fog tables. */
+void ToggleFogLookupBlend(void);
 #endif
 /** Write the hardware palette and logical-colour match counts to a file. */
 void Save256(void);
