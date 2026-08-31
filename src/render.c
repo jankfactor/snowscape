@@ -351,8 +351,8 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
                 j >>= (20 - WORLD_SCALE_REDUCTION);
                 j = max(0, j - 4);
 #else
-                j >>= (20 - WORLD_SCALE_REDUCTION);
-                j = max(0, j - 3);
+                j >>= (19 - WORLD_SCALE_REDUCTION);
+                j = max(0, j - 16);
 #endif // A5000
 #endif // PAL_256
             }
