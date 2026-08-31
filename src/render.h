@@ -27,7 +27,7 @@ void MultV3DProj(V3D *v, int *clipflags);
 #ifdef A5000
     #define SCANRANGE 10
 #else // A3000/A30X0
-    #define SCANRANGE 6
+    #define SCANRANGE 8
 #endif
 
 #define SUBRANGE ((SCANRANGE - 1) << 8)
