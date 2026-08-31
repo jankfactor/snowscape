@@ -8,7 +8,7 @@ Mesh g_Mesh;
 #define SNOWLEVEL ((7400 * 64) << WORLD_SCALE_SHIFT)
 #define SANDLEVEL 0
 #define TERRAIN_MARGIN ((MAPW - TERRAIN_GRID_SIZE) / 2)
-#define HEIGHT_TO_FIX_SHIFT (8 + WORLD_SCALE_SHIFT)
+#define HEIGHT_TO_FIX_SHIFT (9 + WORLD_SCALE_SHIFT)
 #define HEIGHT_TO_FIX (1 << HEIGHT_TO_FIX_SHIFT)
 #define TERRAIN_SHADE_SHIFT (16 - WORLD_SCALE_REDUCTION)
 
@@ -121,72 +121,10 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
             terrainZ = clamp(j - TERRAIN_MARGIN, 0, TERRAIN_GRID_SIZE - 1);
             terrainHash = terrain[terrainZ * TERRAIN_GRID_SIZE + terrainX].detail;
 
-            // Midwinter used a |/|\| pattern for the terrain.
-            //                  |\|/|
+            // Midwinter used a |\|/| pattern for the terrain.
+            //                  |/|\|
             if ((i + j) & 1)
             {
-                /* TL
-                    ___
-                   |  /
-                   | /
-                   |/
-                */
-
-                face.a = i + j * (MAPW);
-                face.b = (i + 1) + j * (MAPW);
-                face.c = i + (j + 1) * (MAPW);
-                face.next = NULL;
-                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
-                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
-#ifdef PAL_256
-                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
-                if (tl > SNOWLEVEL)
-                    k += 32;
-                else if (tl > SANDLEVEL)
-                    k += 16;
-                face.flags = range[k];
-#else
-                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
-                                      6, TERRAIN_SHADE_SHIFT + 2, 2, 10);
-                face.flags = k;
-#endif // PAL_256
-
-                g_Mesh.faces[facecounter++] = face;
-
-                /* BR
-
-                     /|
-                    / |
-                   /__|
-                */
-
-                face.a = (i + 1) + (j + 1) * (MAPW);
-                face.b = i + (j + 1) * (MAPW);
-                face.c = (i + 1) + j * (MAPW);
-                face.next = NULL;
-                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
-                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
-
-#ifdef PAL_256
-                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
-                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
-                if (tl > SNOWLEVEL)
-                    k += 32;
-                else if (tl > SANDLEVEL)
-                    k += 16;
-                face.flags = range[k];
-#else
-                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
-                                      6, TERRAIN_SHADE_SHIFT + 2, 2, 10);
-                face.flags = k;
-#endif // PAL_256
-
-                g_Mesh.faces[facecounter++] = face;
-            }
-            else
-            {
-
                 /* TR
                    ___
                    \  |
@@ -211,7 +149,7 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.flags = range[k];
 #else
                 k = TerrainShadeClass(tl - tr, tr - br, terrainHash, 0,
-                                      6, TERRAIN_SHADE_SHIFT + 1, 2, 10);
+                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
@@ -241,7 +179,68 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.flags = range[k];
 #else
                 k = TerrainShadeClass(bl - br, tl - bl, terrainHash, 1,
-                                      6, TERRAIN_SHADE_SHIFT + 1, 2, 10);
+                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
+                g_Mesh.faces[facecounter++] = face;
+            }
+            else
+            {
+                /* TL
+                    ___
+                   |  /
+                   | /
+                   |/
+                */
+
+                face.a = i + j * (MAPW);
+                face.b = (i + 1) + j * (MAPW);
+                face.c = i + (j + 1) * (MAPW);
+                face.next = NULL;
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
+#ifdef PAL_256
+                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
+                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
+                if (tl > SNOWLEVEL)
+                    k += 32;
+                else if (tl > SANDLEVEL)
+                    k += 16;
+                face.flags = range[k];
+#else
+                k = TerrainShadeClass(tl - tr, tl - bl, terrainHash, 0,
+                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
+                face.flags = k;
+#endif // PAL_256
+
+                g_Mesh.faces[facecounter++] = face;
+
+                /* BR
+
+                     /|
+                    / |
+                   /__|
+                */
+
+                face.a = (i + 1) + (j + 1) * (MAPW);
+                face.b = i + (j + 1) * (MAPW);
+                face.c = (i + 1) + j * (MAPW);
+                face.next = NULL;
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+
+#ifdef PAL_256
+                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
+                                      8, TERRAIN_SHADE_SHIFT, 0, 15);
+                if (tl > SNOWLEVEL)
+                    k += 32;
+                else if (tl > SANDLEVEL)
+                    k += 16;
+                face.flags = range[k];
+#else
+                k = TerrainShadeClass(bl - br, tr - br, terrainHash, 1,
+                                      6, TERRAIN_SHADE_SHIFT, 2, 10);
                 face.flags = k;
 #endif // PAL_256
 
