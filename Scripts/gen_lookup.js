@@ -23,6 +23,11 @@ const inputPalette = [
 const rowBlendIndices = [
   0, 3, 4, 5, 6, 1
 ];
+const solidRowCopies = {
+  4: 2,
+  5: 2,
+  6: 2,
+};
 
 const rowLength = 16;
 const bayerSize = 2; // Bayer pattern size (2x2)
@@ -223,6 +228,16 @@ const copyLookupRow = (source, row, png) => {
   source.data.copy(png.data, rowOffset);
 };
 
+const copySolidLookupRows = (source, paletteIndex, firstRow, png) => {
+  const copyCount = solidRowCopies[paletteIndex] || 1;
+
+  for (let copy = 0; copy < copyCount; copy++) {
+    copyLookupRow(source, firstRow + copy, png);
+  }
+
+  return firstRow + copyCount;
+};
+
 const drawBayerRowBlend = (row1, row2, row, intensity, png) => {
   const destinationY = row * bayerSize;
 
@@ -247,7 +262,11 @@ const generateLookupTablePNG = (
   blendIndices,
   useStraightBlend
 ) => {
-  const rowCount = blendIndices.length +
+  const solidRowCount = blendIndices.reduce(
+    (count, paletteIndex) => count + (solidRowCopies[paletteIndex] || 1),
+    0
+  );
+  const rowCount = solidRowCount +
     (blendIndices.length - 1) * rowBlendIntensities.length;
   const height = rowCount * bayerSize;
   const width = rowLength * bayerSize;
@@ -257,7 +276,12 @@ const generateLookupTablePNG = (
   );
   let outputRow = 0;
 
-  copyLookupRow(anchorRows[0], outputRow++, png);
+  outputRow = copySolidLookupRows(
+    anchorRows[0],
+    blendIndices[0],
+    outputRow,
+    png
+  );
   for (let row = 0; row < anchorRows.length - 1; row++) {
     for (const intensity of rowBlendIntensities) {
       drawBayerRowBlend(
@@ -268,7 +292,12 @@ const generateLookupTablePNG = (
         png
       );
     }
-    copyLookupRow(anchorRows[row + 1], outputRow++, png);
+    outputRow = copySolidLookupRows(
+      anchorRows[row + 1],
+      blendIndices[row + 1],
+      outputRow,
+      png
+    );
   }
 
   return png;

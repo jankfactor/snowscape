@@ -90,7 +90,7 @@ static int TerrainLightIndex(int triangleHeight, int slopeX, int slopeY)
     else
         light = numerator / (int)normalLength;
 
-    return min(max(light, 0) + 2, 20);
+    return min(max(light, 0) + 2, 23);
 }
 
 /** Construct world vertices and shaded checkerboard faces from selected terrain.
