@@ -306,14 +306,12 @@ static void PutPixel(unsigned char *screen, int x, int y,
         WriteScreenPixel(screen, x, y, color);
 }
 
-/** Resolve a cursor position to an original-valid 50x50 extraction origin.
- * Midwinter excludes the generated scratch fringe rather than clamping a
- * selection onto it.
+/** Resolve a cursor position to the nearest valid 50x50 extraction origin.
  * @param mouseX Horizontal cursor coordinate in screen pixels.
  * @param mouseY Vertical cursor coordinate in screen pixels.
  * @param originX Destination for the 100x100 grid's horizontal origin.
  * @param originY Destination for the 100x100 grid's vertical origin.
- * @return Non-zero when the cursor describes a valid extraction window.
+ * @return Non-zero while the cursor is over the map; the origin is clamped.
  */
 static int MapZoomOrigin(int mouseX, int mouseY,
                          int *originX, int *originY)
@@ -321,12 +319,11 @@ static int MapZoomOrigin(int mouseX, int mouseY,
     int mapX = mouseX - MAP_LEFT;
     int mapY = mouseY - MAP_TOP;
 
-    *originX = mapX / 2 - TERRAIN_SEED_SIZE / 2;
-    *originY = mapY / 2 - TERRAIN_SEED_SIZE / 2;
-    return *originX >= TERRAIN_ZOOM_X_MIN &&
-           *originX <= TERRAIN_ZOOM_X_MAX &&
-           *originY >= TERRAIN_ZOOM_Y_MIN &&
-           *originY <= TERRAIN_ZOOM_Y_MAX;
+    *originX = ClampInt(mapX / 2 - TERRAIN_SEED_SIZE / 2,
+                        TERRAIN_ZOOM_X_MIN, TERRAIN_ZOOM_X_MAX);
+    *originY = ClampInt(mapY / 2 - TERRAIN_SEED_SIZE / 2,
+                        TERRAIN_ZOOM_Y_MIN, TERRAIN_ZOOM_Y_MAX);
+    return IsMapPixel(mouseX, mouseY);
 }
 
 /** Calculate the 100x100 preview box selected by a valid cursor position.
@@ -386,6 +383,42 @@ static void DrawMouseCursor(unsigned char *screen, int mouseX, int mouseY)
         PutPixel(screen, mouseX + offset, mouseY, MAP_HIGHLIGHT_COLOR);
         PutPixel(screen, mouseX, mouseY + offset, MAP_HIGHLIGHT_COLOR);
     }
+}
+
+/** Draw the selected player position as a 5x5 dark square with a bright
+ * 3x3 interior. */
+static void DrawPlayerMarker(unsigned char *screen, int playerX, int playerY)
+{
+    int x, y;
+
+    for (y = -2; y <= 2; ++y)
+        for (x = -2; x <= 2; ++x)
+            PutPixel(screen, playerX + x, playerY + y,
+                     x == -2 || x == 2 || y == -2 || y == 2
+                         ? MAP_DARK_COLOR : MAP_HIGHLIGHT_COLOR);
+}
+
+/** Project a selected player's world position into the current map view. */
+static int PlayerMapPosition(const TerrainZoomPath *view,
+                             const TerrainZoomPath *player,
+                             int *playerX, int *playerY)
+{
+    int centerX, centerY;
+    int worldX, worldY;
+    int pixelSize = 1 << (TERRAIN_MAX_ZOOM - view->count);
+    int halfExtent = TERRAIN_DISPLAY_SIZE / 2 * pixelSize;
+    int offsetX, offsetY;
+
+    TerrainZoomCenter(view, &centerX, &centerY);
+    TerrainPlayerWorldPosition(player, &worldX, &worldY);
+    offsetX = worldX - centerX + halfExtent;
+    offsetY = worldY - centerY + halfExtent;
+    if (offsetX < 0 || offsetX >= halfExtent * 2 ||
+        offsetY < 0 || offsetY >= halfExtent * 2)
+        return 0;
+    *playerX = MAP_LEFT + offsetX / pixelSize;
+    *playerY = MAP_TOP + offsetY / pixelSize;
+    return 1;
 }
 
 /** Configure bank one as both draw and visible bank for the map phase.
@@ -455,7 +488,7 @@ static int ReadSpace(void)
 
 /** Run single-buffered map selection until Space accepts or Escape cancels.
  * @param source Loaded pristine Midwinter terrain seed.
- * @param selection Destination zoom path and cursor-selected player position.
+ * @param selection Destination zoom path and middle-clicked player position.
  * @return Zero when accepted, one when cancelled, or -1 on an error.
  */
 int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
@@ -474,6 +507,11 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
     int drawnBoxLeft = 0;
     int drawnBoxTop = 0;
     int drawnBoxVisible = 0;
+    TerrainZoomPath playerSelection;
+    int playerX = 0;
+    int playerY = 0;
+    int playerSet = 0;
+    int playerZoomLevel = 0;
     int mapDirty = 1;
     int result = 1;
 
@@ -526,6 +564,7 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         int boxVisible;
         int boxChanged;
         int mouseChanged;
+        int playerVisible;
 
         error = _kernel_swi(OS_Mouse, &in, &out);
         if (error != NULL)
@@ -534,19 +573,34 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         pressed = buttons & ~previousButtons;
         mousePixelX = out.r[0] >> 1;
         mousePixelY = SCREEN_H - 1 - (out.r[1] >> 1);
-        validZoomOrigin = IsMapInterior(mousePixelX, mousePixelY) &&
-            MapZoomOrigin(mousePixelX, mousePixelY,
-                          &zoomOriginX, &zoomOriginY);
+        validZoomOrigin = MapZoomOrigin(mousePixelX, mousePixelY,
+                                        &zoomOriginX, &zoomOriginY);
 
         if (KeyPress(112))
             break;
-        if (ReadSpace() && IsMapInterior(mousePixelX, mousePixelY) &&
-            (selection->count == TERRAIN_MAX_ZOOM || validZoomOrigin))
+        if (ReadSpace() && playerSet)
         {
-            TerrainSelectPlayer(selection, mousePixelX - MAP_LEFT,
-                                mousePixelY - MAP_TOP);
+            if (selection->count >= playerZoomLevel &&
+                PlayerMapPosition(selection, &playerSelection,
+                                  &playerX, &playerY))
+                TerrainSelectPlayer(selection,
+                                    playerX - MAP_LEFT,
+                                    playerY - MAP_TOP);
+            else
+                *selection = playerSelection;
             result = 0;
             break;
+        }
+
+        if ((pressed & 2) && IsMapInterior(mousePixelX, mousePixelY))
+        {
+            playerSelection = *selection;
+            TerrainSelectPlayer(&playerSelection,
+                                mousePixelX - MAP_LEFT,
+                                mousePixelY - MAP_TOP);
+            playerSet = 1;
+            playerZoomLevel = selection->count;
+            mapDirty = 1;
         }
 
         if ((pressed & 4) && selection->count < TERRAIN_MAX_ZOOM)
@@ -584,6 +638,9 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         boxVisible = selection->count < TERRAIN_MAX_ZOOM &&
             validZoomOrigin &&
             ZoomBoxOrigin(mousePixelX, mousePixelY, &boxLeft, &boxTop);
+        playerVisible = playerSet &&
+            PlayerMapPosition(selection, &playerSelection,
+                              &playerX, &playerY);
 
         /* Wait for refresh, then redraw the one visible map bank in place. */
         in.r[0] = 19;
@@ -613,10 +670,14 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
                             drawnMouseX - 5, drawnMouseY - 5, 11, 11);
         }
 
-        if ((mapDirty || boxChanged) && boxVisible)
-            DrawZoomBox(screen, boxLeft, boxTop);
-        if (mapDirty || mouseChanged)
+        if (mapDirty || boxChanged || mouseChanged)
+        {
+            if (boxVisible)
+                DrawZoomBox(screen, boxLeft, boxTop);
             DrawMouseCursor(screen, mousePixelX, mousePixelY);
+            if (playerVisible)
+                DrawPlayerMarker(screen, playerX, playerY);
+        }
 
         mapDirty = 0;
         drawnBoxVisible = boxVisible;
