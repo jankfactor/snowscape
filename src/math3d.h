@@ -46,13 +46,13 @@ typedef signed int fix;
 #define _SINETABLE_SIZE 1023
 #define fixsin(a) g_SineTable[(a) & _SINETABLE_SIZE]
 #define fixcos(a) g_SineTable[((a) + 256) & _SINETABLE_SIZE]
-extern fix *g_SineTable;
+extern fix g_SineTable[SINETABLE_SIZE];
 
 // Reciprocal table e.g., 1/a
 #define ONEOVERTABLE_SIZE 1024
 #define oneover(a) g_oneOver[(a)]
 #define multOneOver(a, b) (fix)((a >> 16) * (oneover(b))) // Essentially INT * FIX, useful for reciprocal
-extern fix *g_oneOver;
+extern fix g_oneOver[ONEOVERTABLE_SIZE];
 
 // Edge list buffers
 #define EDGELIST_SIZE 256 // 256 * 4 = 1024 bytes, max screen height of 256
@@ -129,10 +129,8 @@ typedef struct MAT44
     fix m41, m42, m43, m44;
 } MAT44;
 
-/** Allocate or release the shared sine and reciprocal lookup tables.
- * @param isAllocating Non-zero to allocate; zero to release.
- */
-void SetupMathsGlobals(int isAllocating);
+/** Publish the reciprocal lookup table address to the assembly rasterizer. */
+void SetupMathsGlobals(void);
 
 /** Reset an affine transform to identity.
  * @param mat Matrix to overwrite.

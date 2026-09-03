@@ -43,7 +43,7 @@ _kernel_oserror *err;
 _kernel_swi_regs rin, rout;
 
 char *gBaseDirectoryPath = NULL;
-int *gEdgeList = NULL;
+int gEdgeList[EDGELIST_SIZE];
 extern unsigned int EdgeList;
 
 #define STRINGIFY(x) #x
@@ -88,17 +88,16 @@ int main(int argc, char *argv[])
 
     gBaseDirectoryPath = getenv("Game$Dir");
 
-    SetupMathsGlobals(1);
+    SetupMathsGlobals();
     for (i = 0; i < 1024; ++i)
     {
         g_SineTable[i] = float2fix(sinf((i * M_PI * 2.f) / 1024.f));
         g_oneOver[i] = (i == 0) ? float2fix(1.f) : float2fix(1.f / i);
     }
 
-    cvector_reserve(gEdgeList, 256);
     EdgeList = (unsigned int)(gEdgeList); // For ASM access
 
-    SetupPaletteLookup(1);
+    SetupPaletteLookup();
     SetupRender();
     if (TerrainLoad(&terrainSource, gBaseDirectoryPath) != 0)
     {
@@ -329,12 +328,6 @@ exit_graphics:
     rin.r[1] = 0xFFFFFFFF;
     err = _kernel_swi(OS_Byte, &rin, &rout);
 
-    // Free up memory that was allocated
-    cvector_free(gEdgeList);
-    if (terrainGenerated)
-        DeAllocateTerrain();
-    SetupMathsGlobals(0);
-    SetupPaletteLookup(0);
     if (terrainGenerated)
     {
         printf("Heading: %d, Pitch: %d\n", heading, pitch);

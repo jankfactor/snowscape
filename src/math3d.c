@@ -1,35 +1,15 @@
 #include "math3d.h"
 
 #include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
 
-#include "cvector.h"
-
-fix *g_oneOver;   // Reciprocal table (for max screen height of 256 in Mode 13)
+fix g_oneOver[ONEOVERTABLE_SIZE]; // Reciprocal table (for max screen height of 256 in Mode 13)
 extern unsigned int OneOver; // Address of the above table for ASM access
-fix *g_SineTable; // SIN table. Offset used for COS.
+fix g_SineTable[SINETABLE_SIZE]; // SIN table. Offset used for COS.
 
-/** Allocate or release the renderer's shared trigonometric lookup storage.
- * @param isAllocating Non-zero to allocate; zero to release.
- */
-void SetupMathsGlobals(int isAllocating)
+/** Publish the reciprocal lookup table address to the assembly rasterizer. */
+void SetupMathsGlobals(void)
 {
-    if (isAllocating)
-    {
-        printf("Allocating tables required for Math3D...\n");
-        cvector_reserve(g_SineTable, SINETABLE_SIZE);
-        cvector_reserve(g_oneOver, ONEOVERTABLE_SIZE);
-        OneOver = (unsigned int)(g_oneOver);
-        printf("Done.\n");
-    }
-    else
-    {
-        printf("Freeing tables required for Math3D...\n");
-        cvector_free(g_SineTable);
-        cvector_free(g_oneOver);
-        printf("Done.\n");
-    }
+    OneOver = (unsigned int)g_oneOver;
 }
 
 /** Reset an affine transform to identity.

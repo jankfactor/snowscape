@@ -5,10 +5,10 @@
 
 Mesh g_Mesh;
 
-#define SNOWLEVEL ((7400 * 64) << WORLD_SCALE_SHIFT)
+#define SNOWLEVEL (7400 * 512)
 #define SANDLEVEL 0
 #define TERRAIN_MARGIN ((MAPW - TERRAIN_GRID_SIZE) / 2)
-#define HEIGHT_TO_FIX_SHIFT (9 + WORLD_SCALE_SHIFT)
+#define HEIGHT_TO_FIX_SHIFT 12
 #define HEIGHT_TO_FIX (1 << HEIGHT_TO_FIX_SHIFT)
 
 /* Height is a signed 8.8 source word scaled by HEIGHT_TO_FIX. Multiplying the
@@ -142,13 +142,6 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
         return 1;
     }
 
-    printf("Reserving %d bytes for Terrain Vertices...\n", MAPW * MAPW * sizeof(V3D));
-    cvector_reserve(g_Mesh.verts, MAPW * MAPW);
-    printf("Reserving %d bytes for Terrain Faces...\n", (MAPW * MAPW) * 2 * sizeof(TRI));
-    cvector_reserve(g_Mesh.faces, (MAPW * MAPW) * 2);
-    printf("Reserving %d bytes for transformed Terrain Vertices...\n", MAPW * MAPW * sizeof(V3D));
-    cvector_reserve(g_Mesh.verts_transformed, MAPW * MAPW);
-
     for (j = 0; j < MAPW; ++j)
         for (i = 0; i < MAPW; ++i)
         {
@@ -189,7 +182,7 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.b = (i + 1) + j * (MAPW);
                 face.c = (i + 1) + (j + 1) * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_SIZE_FIX - CELL_QUARTER_FIX;
                 face.centerpoint.y = j * CELL_SIZE_FIX + CELL_QUARTER_FIX;
 
                 k = TerrainLightIndex(tlHeight, tlHeight - trHeight,
@@ -218,7 +211,7 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.c = i + (j + 1) * (MAPW);
                 face.next = NULL;
                 face.centerpoint.x = i * CELL_SIZE_FIX + CELL_QUARTER_FIX;
-                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_SIZE_FIX - CELL_QUARTER_FIX;
 
                 k = TerrainLightIndex(blHeight, blHeight - brHeight,
                                       tlHeight - blHeight);
@@ -274,8 +267,8 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
                 face.b = i + (j + 1) * (MAPW);
                 face.c = (i + 1) + j * (MAPW);
                 face.next = NULL;
-                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
-                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_THREE_QUARTER_FIX;
+                face.centerpoint.x = i * CELL_SIZE_FIX + CELL_SIZE_FIX - CELL_QUARTER_FIX;
+                face.centerpoint.y = j * CELL_SIZE_FIX + CELL_SIZE_FIX - CELL_QUARTER_FIX;
 
                 k = TerrainLightIndex(brHeight, blHeight - brHeight,
                                       trHeight - brHeight);
@@ -301,7 +294,7 @@ int GenerateTerrain(const TerrainSource *source, const TerrainZoomPath *path)
     // light.z = int2fix(120);
     // Normalize(&light);
 
-    // for (i = 0; i < (_MAPW * _MAPW) * 2; ++i)
+    // for (i = 0; i < (MAPW * MAPW) * 2; ++i)
     // {
     //     // _verts[0] = g_Mesh.verts[g_Mesh.faces[i].a];
     //     // _verts[1] = g_Mesh.verts[g_Mesh.faces[i].b];
@@ -332,14 +325,6 @@ void SetTerrainPlayerStart(const TerrainZoomPath *path, V3D *eyePos)
     eyePos->x = ((TERRAIN_MARGIN << 16) + gridX) << TILESHIFT;
     eyePos->z = ((TERRAIN_MARGIN << 16) + gridZ) << TILESHIFT;
     eyePos->y = GetHeight(eyePos);
-}
-
-/** Release the global mesh's vertex, face, and transformed-vertex arrays. */
-void DeAllocateTerrain(void)
-{
-    cvector_free(g_Mesh.verts);
-    cvector_free(g_Mesh.faces);
-    cvector_free(g_Mesh.verts_transformed);
 }
 
 /** Interpolate the triangle under a position and add standing clearance.

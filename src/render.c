@@ -158,7 +158,7 @@ void RenderTriangle(TRI *tri)
 
     // Turn the average depth into an index that fits into our render queue range
     k += (j + k);
-    k >>= (18 - WORLD_SCALE_REDUCTION);
+    k >>= 18;
     k += 4;
 
     // Triangles that cross the near plane need to be clipped
@@ -197,8 +197,8 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     clippedNearTrisIndex = clippedNearVertIndex = 0;
 
     // Get the fixed normalized location
-    mx = eyePos->x >> CELL_TO_WORLD_SHIFT;
-    mz = eyePos->z >> CELL_TO_WORLD_SHIFT;
+    mx = eyePos->x >> (16 + TILESHIFT);
+    mz = eyePos->z >> (16 + TILESHIFT);
 
     // mx += (fixcos(yaw) >> 13);
     // mz -= (fixsin(yaw) >> 13);
@@ -223,7 +223,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     {
         for (z = mz - SCANRANGE; z <= mz + SCANRANGE; ++z)
         {
-            k = x + (z << MAPSHIFT);
+            k = x + z * MAPW;
             MultV3DMat(&g_Mesh.verts[k], &g_Mesh.verts_transformed[k], mv);
         }
     }
@@ -236,7 +236,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     {
         for (z = mz - SCANRANGE; z < mz + SCANRANGE; ++z)
         {
-            k = x + (z << MAPSHIFT);
+            k = x + z * MAPW;
             k <<= 1;
             RenderTriangle(&g_Mesh.faces[k]);
             ++k;
@@ -300,7 +300,7 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
     {
         for (z = mz - SCANRANGE; z <= mz + SCANRANGE; ++z)
         {
-            i = x + (z << MAPSHIFT);
+            i = x + z * MAPW;
             // MultV3DProj(&g_Mesh.verts_transformed[i], &k);
             ProjectVertex((int)&g_Mesh.verts_transformed[i]);
         }
@@ -340,18 +340,18 @@ void RenderModel(MAT43 *mv, V3D *eyePos, int yaw)
 
 #ifdef A5000
 #ifdef PAL_256
-                j >>= (18 - WORLD_SCALE_REDUCTION);
+                j >>= 18;
                 j = max(0, min(j - 16, 63));
 #else  // 16 COLOR
-                j >>= (19 - WORLD_SCALE_REDUCTION);
+                j >>= 19;
                 j = max(0, j - 16);
 #endif // PAL_256
 #else  // !A5000
 #ifdef PAL_256
-                j >>= (17 - WORLD_SCALE_REDUCTION);
+                j >>= 17;
                 j = max(0, min(j - 16, 63));
 #else
-                j >>= (19 - WORLD_SCALE_REDUCTION);
+                j >>= 19;
                 j = max(0, j - 16);
 #endif // PAL_256
 #endif // A5000

@@ -1,17 +1,18 @@
 #include "palette.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #include <kernel.h>
 #include <swis.h>
 
-#include "cvector.h"
-
 static _kernel_oserror *err;
 static _kernel_swi_regs rin, rout;
 
-unsigned int *g_fogTable;
+#ifdef PAL_256
+unsigned int g_fogTable[64 * 2 * 256];
+#else
+unsigned int g_fogTable[4 * 16 * 32];
+#endif
 extern unsigned int FogTable;
 
 #define HEX_VAL(x) (((x) >> 16) & 0xFF), (((x) >> 8) & 0xFF), ((x) & 0xFF)
@@ -78,28 +79,10 @@ static const unsigned int mapPalette[16] = {
 };
 #endif
 
-/** Allocate or release storage shared with the assembly fog rasterizer.
- * @param allocating Non-zero to allocate; zero to release.
- */
-void SetupPaletteLookup(int allocating)
+/** Publish the fog lookup table address to the assembly rasterizer. */
+void SetupPaletteLookup(void)
 {
-    if (allocating)
-    {
-        printf("Allocating tables required for 2x2 bayer lookup table...\n");
-#ifdef PAL_256
-        cvector_reserve(g_fogTable, 64 * 2 * 256 * 4);
-#else
-        cvector_reserve(g_fogTable, 4 * 16 * 32 * 4);
-#endif // PAL_256
-        FogTable = (unsigned int)(g_fogTable);
-        printf("Done.\n");
-    }
-    else
-    {
-        printf("Freeing tables required for Palette...\n");
-        cvector_free(g_fogTable);
-        printf("Done.\n");
-    }
+    FogTable = (unsigned int)g_fogTable;
 }
 
 /** Program sixteen RGB values into the active mode's logical colours. */
@@ -237,11 +220,8 @@ int LoadFogLookup(void)
         return 1;
     }
 
-#ifdef PAL_256
-    fread((void *)g_fogTable, sizeof(unsigned int), (64 * 2 * 256), file);
-#else
-    fread((void *)g_fogTable, sizeof(unsigned int), (4 * 16 * 32), file);
-#endif // PAL_256
+    fread(g_fogTable, sizeof *g_fogTable,
+          sizeof g_fogTable / sizeof *g_fogTable, file);
 
     fclose(file);
 

@@ -3,12 +3,10 @@
 
 extern char *gBaseDirectoryPath;
 
-extern unsigned int *g_fogTable;
+extern unsigned int g_fogTable[];
 
-/** Allocate or release the distance-fog lookup table.
- * @param allocating Non-zero to allocate; zero to release.
- */
-void SetupPaletteLookup(int allocating);
+/** Publish the fog lookup table address to the assembly rasterizer. */
+void SetupPaletteLookup(void);
 /** Program the application's logical colours into the RISC OS palette. */
 void SetPalette(void);
 #ifndef PAL_256
