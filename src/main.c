@@ -49,6 +49,7 @@ extern unsigned int EdgeList;
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #define KEY_F 67
+#define KEY_F1 113
 
 static const char *CompassDirection(int heading)
 {
@@ -82,7 +83,8 @@ int main(int argc, char *argv[])
     int mouseX, mouseY;
     unsigned char block[9];
     TerrainSource terrainSource;
-    TerrainZoomPath terrainSelection;
+    TerrainZoomPath mapSelection = {0};
+    TerrainZoomPath terrainSelection = {0};
 
     gBaseDirectoryPath = getenv("Game$Dir");
 
@@ -143,7 +145,12 @@ int main(int argc, char *argv[])
         ClearScreen(0, 1);                          // Clear the new draw buffer
     }
 
-    i = RunMapScreen(&terrainSource, &terrainSelection);
+    TerrainSelectPlayer(&terrainSelection,
+                        TERRAIN_DISPLAY_SIZE / 2,
+                        TERRAIN_DISPLAY_SIZE / 2);
+
+map_screen:
+    i = RunMapScreen(&terrainSource, &mapSelection, &terrainSelection);
     if (i != 0)
     {
         if (i < 0)
@@ -233,6 +240,8 @@ int main(int argc, char *argv[])
 
             if (KeyPress(112)) // Escape
                 isRunning = 0;
+            if (isRunning && KeyPress(KEY_F1))
+                goto map_screen;
 
 #ifndef PAL_256
             {

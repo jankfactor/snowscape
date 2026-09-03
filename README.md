@@ -25,7 +25,8 @@ Thanks to the amazing [Archimedes Live!](https://archi.medes.live/) you can run 
 MAP LEFT CLICK - Zoom in around the selected point\
 MAP RIGHT CLICK - Zoom out\
 MAP MIDDLE CLICK - Set the player location\
-MAP SPACE - Enter the 3D world at the selected player location\
+F1 - Map screen\
+F2 - Enter the 3D world at the selected player location\
 LEFT CLICK - Move forwards\
 RIGHT CLICK - Move backwards\
 MOUSE - Move view\

@@ -11,6 +11,7 @@
 #define MAP_LEFT 0
 #define MAP_TOP 0
 #define MAP_FRAME_WIDTH 3
+#define KEY_F2 114
 
 #ifdef PAL_256
 #define MAP_SEA_COLOR 203
@@ -470,28 +471,14 @@ static int RebuildMap(const TerrainSource *source,
     return TerrainBuildDisplay(grid, selection->count, display);
 }
 
-/** Poll buffered keyboard input for Space without waiting.
- * This avoids depending on a keyboard-layout-specific internal key number.
- * @return Non-zero if a Space character was read; zero otherwise.
- */
-static int ReadSpace(void)
-{
-    _kernel_swi_regs in, out;
-    _kernel_oserror *error;
-
-    in.r[0] = 129;
-    in.r[1] = 0;
-    in.r[2] = 0;
-    error = _kernel_swi(OS_Byte, &in, &out);
-    return error == NULL && out.r[2] == 0 && out.r[1] == ' ';
-}
-
-/** Run single-buffered map selection until Space accepts or Escape cancels.
+/** Run single-buffered map selection until F2 accepts or Escape cancels.
  * @param source Loaded pristine Midwinter terrain seed.
- * @param selection Destination zoom path and middle-clicked player position.
+ * @param view Persistent map zoom path.
+ * @param playerSelection Persistent selected player location.
  * @return Zero when accepted, one when cancelled, or -1 on an error.
  */
-int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
+int RunMapScreen(const TerrainSource *source, TerrainZoomPath *view,
+                 TerrainZoomPath *playerSelection)
 {
     HeightCell *grid;
     HeightCell *display;
@@ -507,16 +494,17 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
     int drawnBoxLeft = 0;
     int drawnBoxTop = 0;
     int drawnBoxVisible = 0;
-    TerrainZoomPath playerSelection;
+    TerrainZoomPath selectedPlayer;
     int playerX = 0;
     int playerY = 0;
-    int playerSet = 0;
     int playerZoomLevel = 0;
     int mapDirty = 1;
     int result = 1;
 
-    if (source == NULL || selection == NULL)
+    if (source == NULL || view == NULL || playerSelection == NULL)
         return -1;
+
+    selectedPlayer = *playerSelection;
 
     grid = (HeightCell *)malloc(TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE *
                                 sizeof(HeightCell));
@@ -532,15 +520,14 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
         return -1;
     }
 
-    memset(selection, 0, sizeof(*selection));
-    if (RebuildMap(source, selection, grid, display) != 0)
+    if (RebuildMap(source, view, grid, display) != 0)
     {
         free(grid);
         free(display);
         free(bitmap);
         return -1;
     }
-    RenderMapBitmap(bitmap, display, selection->count);
+    RenderMapBitmap(bitmap, display, view->count);
 
     if (SelectMapScreenBank(&screen) != 0)
     {
@@ -551,6 +538,16 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
     }
 #ifndef PAL_256
     SetMapPalette();
+#else
+    in.r[0] = 20;
+    error = _kernel_swi(OS_WriteC, &in, &out);
+    if (error != NULL)
+    {
+        free(grid);
+        free(display);
+        free(bitmap);
+        return -1;
+    }
 #endif
 
     for (;;)
@@ -578,69 +575,68 @@ int RunMapScreen(const TerrainSource *source, TerrainZoomPath *selection)
 
         if (KeyPress(112))
             break;
-        if (ReadSpace() && playerSet)
+        if (KeyPress(KEY_F2))
         {
-            if (selection->count >= playerZoomLevel &&
-                PlayerMapPosition(selection, &playerSelection,
+            if (view->count >= playerZoomLevel &&
+                PlayerMapPosition(view, &selectedPlayer,
                                   &playerX, &playerY))
-                TerrainSelectPlayer(selection,
-                                    playerX - MAP_LEFT,
-                                    playerY - MAP_TOP);
-            else
-                *selection = playerSelection;
+            {
+                selectedPlayer = *view;
+                TerrainSelectPlayer(&selectedPlayer,
+                                    playerX - MAP_LEFT, playerY - MAP_TOP);
+            }
+            *playerSelection = selectedPlayer;
             result = 0;
             break;
         }
 
         if ((pressed & 2) && IsMapInterior(mousePixelX, mousePixelY))
         {
-            playerSelection = *selection;
-            TerrainSelectPlayer(&playerSelection,
+            selectedPlayer = *view;
+            TerrainSelectPlayer(&selectedPlayer,
                                 mousePixelX - MAP_LEFT,
                                 mousePixelY - MAP_TOP);
-            playerSet = 1;
-            playerZoomLevel = selection->count;
+            playerZoomLevel = view->count;
             mapDirty = 1;
         }
 
-        if ((pressed & 4) && selection->count < TERRAIN_MAX_ZOOM)
+        if ((pressed & 4) && view->count < TERRAIN_MAX_ZOOM)
         {
             /* These modes have two OS units per pixel and OS_Mouse measures
                Y up from the bottom of the screen. */
             if (validZoomOrigin)
             {
-                int index = selection->count;
+                int index = view->count;
 
-                selection->x[index] = (unsigned char)zoomOriginX;
-                selection->y[index] = (unsigned char)zoomOriginY;
-                ++selection->count;
-                if (RebuildMap(source, selection, grid, display) != 0)
+                view->x[index] = (unsigned char)zoomOriginX;
+                view->y[index] = (unsigned char)zoomOriginY;
+                ++view->count;
+                if (RebuildMap(source, view, grid, display) != 0)
                 {
                     result = -1;
                     break;
                 }
-                RenderMapBitmap(bitmap, display, selection->count);
+                RenderMapBitmap(bitmap, display, view->count);
                 mapDirty = 1;
             }
         }
-        else if ((pressed & 1) && selection->count > 0)
+        else if ((pressed & 1) && view->count > 0)
         {
-            --selection->count;
-            if (RebuildMap(source, selection, grid, display) != 0)
+            --view->count;
+            if (RebuildMap(source, view, grid, display) != 0)
             {
                 result = -1;
                 break;
             }
-            RenderMapBitmap(bitmap, display, selection->count);
+            RenderMapBitmap(bitmap, display, view->count);
             mapDirty = 1;
         }
         previousButtons = buttons;
-        boxVisible = selection->count < TERRAIN_MAX_ZOOM &&
+        boxVisible = view->count < TERRAIN_MAX_ZOOM &&
             validZoomOrigin &&
             ZoomBoxOrigin(mousePixelX, mousePixelY, &boxLeft, &boxTop);
-        playerVisible = playerSet &&
-            PlayerMapPosition(selection, &playerSelection,
-                              &playerX, &playerY);
+        playerVisible = PlayerMapPosition(view, &selectedPlayer,
+                                          &playerX, &playerY);
 
         /* Wait for refresh, then redraw the one visible map bank in place. */
         in.r[0] = 19;
