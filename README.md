@@ -1,7 +1,7 @@
 # Snowscape
 
 ### Description
-A 3D landscape engine for Acorn Archimedes based on the [Midwinter](https://en.wikipedia.org/wiki/Midwinter_(video_game)) series of games by Mike Singleton and Maelstrom. These games were never released for Acorn machines, so Snowscape explores what an authentic Archimedes version might have looked and felt like while taking advantage of the machine's ARM processor and distinctive 256-colour palette. It is written in C89 and ARM assembly.
+A 3D landscape engine for [Acorn Archimedes](https://en.wikipedia.org/wiki/Acorn_Archimedes) based on the [Midwinter](https://en.wikipedia.org/wiki/Midwinter_(video_game)) series of games by [Mike Singleton](https://en.wikipedia.org/wiki/Mike_Singleton) and [Maelstrom](https://www.mobygames.com/company/1628/maelstrom-games-ltd/games/). These games were never released for Acorn machines, so Snowscape explores what an authentic Archimedes version might have looked and felt like while taking advantage of the machine's ARM processor and distinctive 256-colour palette. It is written in C89 and ARM assembly.
 
 ![Mode 9 (16-color) and Mode 13 (256-color) versions of the map and terrain engine](terrain.png?v=96ba714)
 *16-Color (aka, Amiga/ST) and Archimedes 256-Color (custom) versions*
