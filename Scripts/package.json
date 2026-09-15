@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "chroma-js": "^3.1.2",
+    "color-convert": "^2.0.1",
+    "pngjs": "^7.0.0"
+  }
+}

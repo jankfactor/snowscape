@@ -1,0 +1,28 @@
+#ifndef PALETTE_H
+#define PALETTE_H
+
+extern char *gBaseDirectoryPath;
+
+extern unsigned int g_fogTable[];
+
+/** Publish the fog lookup table address to the assembly rasterizer. */
+void SetupPaletteLookup(void);
+/** Program the application's logical colours into the RISC OS palette. */
+void SetPalette(void);
+#ifdef PAL_256
+/** Select a colour from coastal height and shade (0..15); useSand enables sand. */
+unsigned char TerrainColor(int height, int shade, int useSand);
+#else
+/** Install the Amiga map-screen palette used by the relief view. */
+void SetMapPalette(void);
+/** Toggle between the straight and interpolated 16-colour fog tables. */
+void ToggleFogLookupBlend(void);
+#endif
+/** Write the hardware palette and logical-colour match counts to a file. */
+void Save256(void);
+/** Load the precomputed Bayer-dithered fog lookup table.
+ * @return Zero on success; non-zero if the lookup asset cannot be opened.
+ */
+int LoadFogLookup(void);
+
+#endif // PALETTE_H

@@ -1,0 +1,13 @@
+# C Object files
+*/o/*,ffd
+src/obj
+/\!Snowscape
+
+# Visual Studio Code
+.vscode
+
+# MacOS
+.DS_Store
+
+# Python build tools
+.venv/

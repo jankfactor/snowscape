@@ -1,0 +1,257 @@
+/* Font glyphs from spaceshooter (Nick Anderson, MIT; see LICENSE). */
+#include "font.h"
+
+#define GLYPH_W 4
+#define GLYPH_H 8
+#define LINE_HEIGHT 10
+
+enum
+{
+    FONT_SPACE = 0,
+    FONT_A,
+    FONT_B,
+    FONT_C,
+    FONT_D,
+    FONT_E,
+    FONT_F,
+    FONT_G,
+    FONT_H,
+    FONT_I,
+    FONT_J,
+    FONT_K,
+    FONT_L,
+    FONT_M,
+    FONT_N,
+    FONT_O,
+    FONT_P,
+    FONT_Q,
+    FONT_R,
+    FONT_S,
+    FONT_T,
+    FONT_U,
+    FONT_V,
+    FONT_W,
+    FONT_X,
+    FONT_Y,
+    FONT_Z,
+    FONT_0,
+    FONT_1,
+    FONT_2,
+    FONT_3,
+    FONT_4,
+    FONT_5,
+    FONT_6,
+    FONT_7,
+    FONT_8,
+    FONT_9,
+    FONT_DOT,
+    FONT_COMMA,
+    FONT_COLON,
+    FONT_HYPHEN,
+    FONT_SLASH,
+    FONT_BANG,
+    FONT_QUESTION,
+    FONT_DOUBLE_QUOTES,
+    FONT_SINGLE_QUOTE,
+    FONT_UNDERSCORE,
+    FONT_PERCENT,
+    FONT_LEFT_PAREN,
+    FONT_RIGHT_PAREN,
+    FONT_COUNT
+};
+
+static const unsigned char font_4x8[FONT_COUNT][8] = {
+    {0, 0, 0, 0, 0, 0, 0, 0},               /* space */
+    {0x6, 0x9, 0x9, 0xF, 0x9, 0x9, 0x9, 0}, /* A */
+    {0xE, 0x9, 0x9, 0xE, 0x9, 0x9, 0xE, 0}, /* B */
+    {0x6, 0x9, 0x8, 0x8, 0x8, 0x9, 0x6, 0}, /* C */
+    {0xE, 0x9, 0x9, 0x9, 0x9, 0x9, 0xE, 0}, /* D */
+    {0xF, 0x8, 0x8, 0xE, 0x8, 0x8, 0xF, 0}, /* E */
+    {0xF, 0x8, 0x8, 0xE, 0x8, 0x8, 0x8, 0}, /* F */
+    {0x6, 0x9, 0x8, 0xB, 0x9, 0x9, 0x7, 0}, /* G */
+    {0x9, 0x9, 0x9, 0xF, 0x9, 0x9, 0x9, 0}, /* H */
+    {0xE, 0x4, 0x4, 0x4, 0x4, 0x4, 0xE, 0}, /* I */
+    {0x7, 0x2, 0x2, 0x2, 0x2, 0xA, 0x4, 0}, /* J */
+    {0x9, 0xA, 0xC, 0x8, 0xC, 0xA, 0x9, 0}, /* K */
+    {0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0xF, 0}, /* L */
+    {0x9, 0xF, 0xF, 0x9, 0x9, 0x9, 0x9, 0}, /* M */
+    {0x9, 0xD, 0xD, 0xB, 0xB, 0x9, 0x9, 0}, /* N */
+    {0x6, 0x9, 0x9, 0x9, 0x9, 0x9, 0x6, 0}, /* O */
+    {0xE, 0x9, 0x9, 0xE, 0x8, 0x8, 0x8, 0}, /* P */
+    {0x6, 0x9, 0x9, 0x9, 0xB, 0xA, 0x5, 0}, /* Q */
+    {0xE, 0x9, 0x9, 0xE, 0xC, 0xA, 0x9, 0}, /* R */
+    {0x7, 0x8, 0x8, 0x6, 0x1, 0x1, 0xE, 0}, /* S */
+    {0xF, 0x4, 0x4, 0x4, 0x4, 0x4, 0x4, 0}, /* T */
+    {0x9, 0x9, 0x9, 0x9, 0x9, 0x9, 0x6, 0}, /* U */
+    {0x9, 0x9, 0x9, 0x9, 0x9, 0x6, 0x6, 0}, /* V */
+    {0x9, 0x9, 0x9, 0x9, 0xF, 0xF, 0x9, 0}, /* W */
+    {0x9, 0x9, 0x6, 0x6, 0x6, 0x9, 0x9, 0}, /* X */
+    {0x9, 0x9, 0x6, 0x4, 0x4, 0x4, 0x4, 0}, /* Y */
+    {0xF, 0x1, 0x2, 0x4, 0x8, 0x8, 0xF, 0}, /* Z */
+
+    {0x6, 0x9, 0xB, 0xD, 0x9, 0x9, 0x6, 0}, /* 0 */
+    {0x4, 0xC, 0x4, 0x4, 0x4, 0x4, 0xE, 0}, /* 1 */
+    {0x6, 0x9, 0x1, 0x2, 0x4, 0x8, 0xF, 0}, /* 2 */
+    {0xE, 0x1, 0x1, 0x6, 0x1, 0x1, 0xE, 0}, /* 3 */
+    {0x2, 0x6, 0xA, 0xA, 0xF, 0x2, 0x2, 0}, /* 4 */
+    {0xF, 0x8, 0x8, 0xE, 0x1, 0x1, 0xE, 0}, /* 5 */
+    {0x6, 0x8, 0x8, 0xE, 0x9, 0x9, 0x6, 0}, /* 6 */
+    {0xF, 0x1, 0x2, 0x2, 0x4, 0x4, 0x4, 0}, /* 7 */
+    {0x6, 0x9, 0x9, 0x6, 0x9, 0x9, 0x6, 0}, /* 8 */
+    {0x6, 0x9, 0x9, 0x7, 0x1, 0x1, 0x6, 0}, /* 9 */
+
+    {0x0, 0x0, 0x0, 0x0, 0x0, 0x6, 0x6, 0},   /* . */
+    {0x0, 0x0, 0x0, 0x0, 0x0, 0x6, 0x6, 0x4}, /* , */
+    {0x0, 0x0, 0x6, 0x0, 0x0, 0x6, 0x0, 0x0}, /* : */
+    {0x0, 0x0, 0x0, 0xF, 0x0, 0x0, 0x0, 0x0}, /* - */
+    {0x1, 0x1, 0x2, 0x2, 0x4, 0x4, 0x8, 0x0}, /* / */
+    {0x4, 0x4, 0x4, 0x4, 0x4, 0x0, 0x4, 0},   /* ! */
+    {0x6, 0x9, 0x1, 0x2, 0x4, 0x0, 0x4, 0},   /* ? */
+    {0xA, 0xA, 0xA, 0x0, 0x0, 0x0, 0x0, 0},   /* " */
+    {0x4, 0x4, 0x4, 0x0, 0x0, 0x0, 0x0, 0},   /* ' */
+    {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xF, 0},   /* _ */
+    {0xC, 0xD, 0x2, 0x4, 0xB, 0x3, 0, 0},     /* % */
+    {0x2, 0x4, 0x8, 0x8, 0x8, 0x4, 0x2, 0},   /* ( */
+    {0x4, 0x2, 0x1, 0x1, 0x1, 0x2, 0x4, 0}    /* ) */
+};
+
+static unsigned map_char(char c)
+{
+    if (c == ' ')
+        return FONT_SPACE;
+
+    if ((unsigned)(c - 'a') <= ('z' - 'a'))
+        c -= 32;
+
+    if ((unsigned)(c - 'A') <= ('Z' - 'A'))
+        return (unsigned)(c - 'A') + FONT_A;
+
+    if ((unsigned)(c - '0') <= 9)
+        return (unsigned)(c - '0') + FONT_0;
+
+    switch ((unsigned char)c)
+    {
+    case '.':
+        return FONT_DOT;
+    case ',':
+        return FONT_COMMA;
+    case ':':
+        return FONT_COLON;
+    case '-':
+        return FONT_HYPHEN;
+    case '/':
+        return FONT_SLASH;
+    case '!':
+        return FONT_BANG;
+    case '?':
+        return FONT_QUESTION;
+    case '"':
+        return FONT_DOUBLE_QUOTES;
+    case '\'':
+        return FONT_SINGLE_QUOTE;
+    case '_':
+        return FONT_UNDERSCORE;
+    case '%':
+        return FONT_PERCENT;
+    case '(':
+        return FONT_LEFT_PAREN;
+    case ')':
+        return FONT_RIGHT_PAREN;
+    }
+
+    return FONT_SPACE;
+}
+
+#ifdef PAL_256
+#define SCREEN_STRIDE 320
+#else
+#define SCREEN_STRIDE 160
+/* Expand four glyph bits into four pixel masks, left pixel in the low nibble.
+ * Two/three byte writes per row also work at odd X without unaligned words.
+ */
+static const unsigned short row_masks[16] = {
+    0x0000, 0xf000, 0x0f00, 0xff00,
+    0x00f0, 0xf0f0, 0x0ff0, 0xfff0,
+    0x000f, 0xf00f, 0x0f0f, 0xff0f,
+    0x00ff, 0xf0ff, 0x0fff, 0xffff
+};
+#endif
+
+static void draw_char(unsigned char *row, int x, char c,
+                      unsigned char fg, int opaque)
+{
+    const unsigned char *g = font_4x8[map_char(c)];
+    unsigned char *dst;
+    int y;
+#ifdef PAL_256
+    unsigned char b;
+
+    dst = row + x;
+    for (y = 0; y < GLYPH_H; ++y)
+    {
+        b = g[y];
+        if (opaque || (b & 8)) dst[0] = (b & 8) ? fg : 0;
+        if (opaque || (b & 4)) dst[1] = (b & 4) ? fg : 0;
+        if (opaque || (b & 2)) dst[2] = (b & 2) ? fg : 0;
+        if (opaque || (b & 1)) dst[3] = (b & 1) ? fg : 0;
+        dst += SCREEN_STRIDE;
+    }
+#else
+    unsigned int bits, mask, pixels;
+    unsigned int ink = (fg & 15u) * 0x1111u;
+    int shift = (x & 1) * 4;
+
+    dst = row + (x >> 1);
+    for (y = 0; y < GLYPH_H; ++y)
+    {
+        bits = row_masks[g[y]];
+        mask = (opaque ? 0xffffu : bits) << shift;
+        pixels = (bits & ink) << shift;
+        dst[0] = (unsigned char)((dst[0] & ~mask) | pixels);
+        dst[1] = (unsigned char)((dst[1] & ~(mask >> 8)) | (pixels >> 8));
+        if (shift)
+            dst[2] = (unsigned char)((dst[2] & ~(mask >> 16)) |
+                                     (pixels >> 16));
+        dst += SCREEN_STRIDE;
+    }
+#endif
+}
+
+void draw_text_char_opaque(unsigned char *dst, char c, unsigned char fg)
+{
+    draw_char(dst, 0, c, fg, 1);
+}
+
+static void draw_string(unsigned char *fb, int x, int y, const char *s,
+                        unsigned char fg, int opaque)
+{
+    unsigned char *row = fb + y * SCREEN_STRIDE;
+    int start_x = x;
+
+    for (; *s; ++s)
+    {
+        if (*s == '\n')
+        {
+            row += LINE_HEIGHT * SCREEN_STRIDE;
+            x = start_x;
+        }
+        else
+        {
+            if (opaque || *s != ' ')
+                draw_char(row, x, *s, fg, opaque);
+            x += GLYPH_W + 1;
+        }
+    }
+}
+
+void draw_text(unsigned char *fb, int x, int y, const char *s,
+               unsigned char fg)
+{
+    draw_string(fb, x, y, s, fg, 0);
+}
+
+void draw_text_opaque(unsigned char *fb, int x, int y, const char *s,
+                      unsigned char fg)
+{
+    draw_string(fb, x, y, s, fg, 1);
+}
