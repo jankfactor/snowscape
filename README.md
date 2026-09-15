@@ -17,8 +17,10 @@ As per the license this software is released **AS IS**. I don't have the time to
 ### QuickStart
 Thanks to the amazing [Archimedes Live!](https://archi.medes.live/) you can run a prebuilt version directly in the browser.
 
-[SnowScape A5000 Version](https://archi.medes.live#preset=a5000&ff=14400&disc=https://raw.githubusercontent.com/arkiruthis/snowscape/25f89f3b0dee86dc6675f090872a5919808afcab/Images/snowscapeA5000.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape) (further draw distance)\
-[SnowScape A3020 Version](https://archi.medes.live#preset=a3020&ff=14400&disc=https://raw.githubusercontent.com/arkiruthis/snowscape/25f89f3b0dee86dc6675f090872a5919808afcab/Images/snowscapeA3020.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape) 
+- [SnowScape A5000 — 16-color](https://archi.medes.live#preset=a5000&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow16A5k.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape) (further draw distance)
+- [SnowScape A5000 — 256-color](https://archi.medes.live#preset=a5000&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256A5k.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape) (further draw distance)
+- [SnowScape A3020 — 16-color](https://archi.medes.live#preset=a3020&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow16.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape)
+- [SnowScape A3020 — 256-color](https://archi.medes.live#preset=a3020&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape)
 
 ### Known Issues
 - When you reach the edge of the terrain, you'll be abruptly reset to the starting position. TODO - like the original Midwinter, we could reset the camera and generate the terrain to match the next section you're in. 
