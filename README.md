@@ -5,14 +5,6 @@ A 3D landscape engine for Acorn Archimedes based on the [Midwinter](https://en.w
 
 ![Mode 9 (16-color) and Mode 13 (256-color) versions of the map and terrain engine](terrain.png?v=96ba714)
 *16-Color (aka, Amiga/ST) and Archimedes 256-Color (custom) versions*
- 
-Originally started via manual reverse engineering, the DOS version of *Midwinter* has now been fully reverse engineered elsewhere with LLM assistance. Snowscape uses the resulting documentation to reproduce the original terrain generation, world behaviour, rendering decisions, palette character, fog, and overall experience as closely as practical. But this is not intended to be an instruction-for-instruction port of the original x86 code by any means. Where appropriate, routines and data flow are redesigned for ARM and RISC OS&mdash;including 32-bit fixed-point maths, custom lookup tables, polygon rasterisation, screen banking, and machine-specific draw distances&mdash;to keep performance as high and predictable as possible on real Archimedes hardware. Essentially, the implementation remains purpose-built for Acorn machines.
-
-As the Archimedes has a 'quirky' 256 color mode, I've implemented a 256 color version. However, there's also a Mode 9 16-color version which aims to look closer to the Atari ST and Amiga originals. Also there's an A5000 version with further draw distance.
-
-⚠️ The original game used a big-endian ZBUFFER.BIN on PC (taken from the Amiga/ST version) with a starting grid of 50x50 points and a hash table for midpoint generation. **A custom version of this has been created as to not ship copyrighted code**, but if you legally own Midwinter on PC, you can rename that file `ZBUFFER` (i.e., remove the `.BIN`) and replace the one in the `src/!Snowscape/assets` folder to see the original Midwinter isle.
-
-As per the license this software is released **AS IS**. I don't have the time to look through pull requests, etc., but please feel free to fork the project and play with it as you will. :)
 
 ### QuickStart
 Thanks to the amazing [Archimedes Live!](https://archi.medes.live/) you can run a prebuilt version directly in the browser.
@@ -21,6 +13,15 @@ Thanks to the amazing [Archimedes Live!](https://archi.medes.live/) you can run 
 - [SnowScape A5000 — 256-color](https://archi.medes.live#preset=a5000&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256A5k.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape) (further draw distance)
 - [SnowScape A3020 — 16-color](https://archi.medes.live#preset=a3020&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow16.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape)
 - [SnowScape A3020 — 256-color](https://archi.medes.live#preset=a3020&ff=14400&disc=https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256.adf&autoboot=desktop%20filer_run%20adfs::0.$.!Snowscape)
+
+### Overview
+Originally started via manual reverse engineering, the DOS version of *Midwinter* has now been fully reverse engineered elsewhere with LLM assistance. Snowscape uses the resulting documentation to reproduce the original terrain generation, world behaviour, rendering decisions, palette character, fog, and overall experience as closely as practical. But this is not intended to be an instruction-for-instruction port of the original x86 code by any means. Where appropriate, routines and data flow are redesigned for ARM and RISC OS&mdash;including 32-bit fixed-point maths, custom lookup tables, polygon rasterisation, screen banking, and machine-specific draw distances&mdash;to keep performance as high and predictable as possible on real Archimedes hardware. Essentially, the implementation remains purpose-built for Acorn machines.
+
+As the Archimedes has a 'quirky' 256 color mode, I've implemented a 256 color version. However, there's also a Mode 9 16-color version which aims to look closer to the Atari ST and Amiga originals. Also there's an A5000 version with further draw distance.
+
+⚠️ The original game used a big-endian ZBUFFER.BIN on PC (taken from the Amiga/ST version) with a starting grid of 50x50 points and a hash table for midpoint generation. **A custom version of this has been created as to not ship copyrighted code**, but if you legally own Midwinter on PC, you can rename that file `ZBUFFER` (i.e., remove the `.BIN`) and replace the one in the `src/!Snowscape/assets` folder to see the original Midwinter isle.
+
+As per the license this software is released **AS IS**. I don't have the time to look through pull requests, etc., but please feel free to fork the project and play with it as you will. :)
 
 ### Known Issues
 - When you reach the edge of the terrain, you'll be abruptly reset to the starting position. TODO - like the original Midwinter, we could reset the camera and generate the terrain to match the next section you're in. 
