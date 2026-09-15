@@ -19,7 +19,7 @@ Originally started via manual reverse engineering, the DOS version of *Midwinter
 
 As the Archimedes has a 'quirky' 256 color mode, I've implemented a 256 color version. However, there's also a Mode 9 16-color version which aims to look closer to the Atari ST and Amiga originals. Also there's an A5000 version with further draw distance.
 
-⚠️ The original game used a big-endian ZBUFFER.BIN on PC (taken from the Amiga/ST version) with a starting grid of 50x50 points and a hash table for midpoint generation. **A custom version of this has been created as to not ship copyrighted code**, but if you legally own Midwinter on PC, you can rename that file `ZBUFFER` (i.e., remove the `.BIN`) and replace the one in the `src/!Snowscape/assets` folder to see the original Midwinter isle.
+⚠️ The original game used a big-endian `ZBUFFER.BIN` on PC (taken from the Amiga/ST version) with a starting grid of 50x50 points and a hash table for midpoint generation. **A custom version of this has been created as to not ship copyrighted code**, but if you legally own Midwinter on PC, you can rename that file `ZBUFFER` (i.e., remove the `.BIN`) and replace the one in the `src/!Snowscape/assets` folder to see the original Midwinter isle.
 
 As per the license this software is released **AS IS**. I don't have the time to look through pull requests, etc., but please feel free to fork the project and play with it as you will. :)
 
@@ -55,7 +55,14 @@ Test build/copy and ADF packaging without an ARM compiler:
 ```
 
 ### Running on Original Hardware
-Use an emulator (Arculator, RPCEmu, ArchiEmu, etc.) to copy the Projects folder onto an ADF and either use that in a Gotek, or use it to prepare a floppy disk. This is to preserve the file types that are set up on HostFS so that they run correctly on native RISCOS. 
+Download a prebuilt ADF directly; no build is required:
+
+- A3020-class machines: [16-color](https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow16.adf) or [256-color](https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256.adf).
+- A5000 (further draw distance): [16-color](https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow16A5k.adf) or [256-color](https://raw.githubusercontent.com/jankfactor/snowscape/main/Images/Snow256A5k.adf).
+
+Load the chosen image on a Gotek, or write it to a floppy disk. On the Archimedes, open the disk and double-click `!Snowscape`. The ADFs already preserve the required RISC OS file types.
+
+To build your own ADFs, run `./build.sh --all --adfs`; the images are written to the `Images` folder.
 
 ### Enabling Profiling
 1. Uncomment `// #define TIMING_LOG 1` in `/Projects/h/Render`
