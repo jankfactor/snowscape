@@ -174,9 +174,7 @@ int main(int argc, char *argv[])
         ClearScreen(0, 1);                          // Clear the new draw buffer
     }
 
-    TerrainSelectPlayer(&terrainSelection,
-                        TERRAIN_DISPLAY_SIZE / 2,
-                        TERRAIN_DISPLAY_SIZE / 2);
+    TerrainSelectPlayer(&terrainSelection, 92, 60);
 
 map_screen:
     i = RunMapScreen(&terrainSource, &mapSelection, &terrainSelection);
