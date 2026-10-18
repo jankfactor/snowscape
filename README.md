@@ -103,4 +103,7 @@ The amazing [Bitshifters](https://bitshifters.github.io/index.html) team for alw
 
 [Tara Colin](https://gitlab.com/_targz/archiesdk), and others who have contributed to the ArchieSDK tools which has opened up an exciting new chapter in demoscene development for early RISCOS machines. 
 
-Tom Sneddon for helping me fix the CORS issue which means we can link to Archimedes Live! direct from here. Also check out `b2`, his amazing [BBC Micro Emulator](https://github.com/tom-seddon/b2)! 
+Tom Sneddon for helping me fix the CORS issue which means we can link to Archimedes Live! direct from here. Also check out `b2`, his amazing [BBC Micro Emulator](https://github.com/tom-seddon/b2)!
+
+Robert Smallshire for his excellent [Oaknut Disc](https://pypi.org/project/oaknut-disc/) CLI tool which allows the project to build ready-to-go ADFS files as part of the build process.
+
